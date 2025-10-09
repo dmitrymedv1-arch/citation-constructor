@@ -367,8 +367,7 @@ def process_docx(input_file, style_config):
             apply_yellow_background(run)
         else:
             if metadata is None:
-                run = pa
-ra.add_run(str(elements))
+                run = para.add_run(str(elements))
                 run.font.italic = True
             else:
                 for j, (value, italic, bold, separator, is_doi_hyperlink, doi_value) in enumerate(elements):
@@ -589,3 +588,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
