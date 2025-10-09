@@ -367,7 +367,8 @@ def process_docx(input_file, style_config):
             apply_yellow_background(run)
         else:
             if metadata is None:
-                run = para.add_run(str(elements))
+                run = pa
+ra.add_run(str(elements))
                 run.font.italic = True
             else:
                 for j, (value, italic, bold, separator, is_doi_hyperlink, doi_value) in enumerate(elements):
@@ -393,17 +394,17 @@ def main():
     st.set_page_config(layout="wide")
     st.markdown("""
         <style>
-        .block-container { padding: 0.5rem; }
+        .block-container { padding: 0.3rem; }
         .stSelectbox, .stTextInput, .stNumberInput, .stCheckbox, .stRadio, .stFileUploader, .stTextArea {
-            margin-bottom: 0.1rem;
+            margin-bottom: 0.05rem;
         }
-        .stTextArea { height: 60px !important; }
-        .stButton > button { width: 100%; padding: 0.1rem; }
-        h1 { font-size: 1.3rem; margin-bottom: 0.2rem; }
-        h3 { font-size: 1.0rem; margin-bottom: 0.1rem; }
-        label { font-size: 0.8rem !important; }
-        .stMarkdown { font-size: 0.8rem; }
-        .stCheckbox > label { display: none; }
+        .stTextArea { height: 50px !important; }
+        .stButton > button { width: 100%; padding: 0.1rem; font-size: 0.8rem; }
+        h1 { font-size: 1.2rem; margin-bottom: 0.1rem; }
+        h3 { font-size: 0.9rem; margin-bottom: 0.05rem; }
+        label { font-size: 0.75rem !important; }
+        .stMarkdown { font-size: 0.75rem; }
+        .stCheckbox > label { font-size: 0.7rem; }
         </style>
     """, unsafe_allow_html=True)
 
@@ -440,13 +441,13 @@ def main():
         for i in range(8):  # Все 8 элементов
             cols = st.columns([2, 1, 1, 1, 2])
             with cols[0]:
-                element = st.selectbox("", available_elements, key=f"el{i}")
+                element = st.selectbox("", available_elements, key=f"el{i}", label_visibility="collapsed")
             with cols[1]:
-                italic = st.checkbox("", key=f"it{i}")
+                italic = st.checkbox(get_text('italic'), key=f"it{i}")
             with cols[2]:
-                bold = st.checkbox("", key=f"bd{i}")
+                bold = st.checkbox(get_text('bold'), key=f"bd{i}")
             with cols[3]:
-                parentheses = st.checkbox("", key=f"pr{i}")
+                parentheses = st.checkbox(get_text('parentheses'), key=f"pr{i}")
             with cols[4]:
                 separator = st.text_input("", value=". ", key=f"sp{i}", label_visibility="collapsed")
             if element and element not in used_elements:
@@ -494,12 +495,12 @@ def main():
         if input_method == 'DOCX':
             uploaded_file = st.file_uploader(get_text('select_docx'), type=['docx'], label_visibility="collapsed")
         else:
-            references_input = st.text_area(get_text('references'), placeholder=get_text('enter_references'), height=60)
+            references_input = st.text_area(get_text('references'), placeholder=get_text('enter_references'), height=50)
 
         # Вывод
         st.subheader(get_text('data_output'))
         output_method = st.radio(get_text('output_method'), ['DOCX', 'Text' if st.session_state.current_language == 'en' else 'Текст'], horizontal=True)
-        output_text = st.text_area(get_text('results'), placeholder=get_text('results'), height=60, disabled=True)
+        output_text = st.text_area(get_text('results'), placeholder=get_text('results'), height=50, disabled=True)
 
         # Кнопка обработки
         if st.button(get_text('process')):
@@ -584,7 +585,7 @@ def main():
 
     # Обновление текстового поля результатов
     if 'output_text' in st.session_state:
-        st.text_area(get_text('results'), value=st.session_state['output_text'], height=60, disabled=True)
+        st.text_area(get_text('results'), value=st.session_state['output_text'], height=50, disabled=True)
 
 if __name__ == "__main__":
     main()
