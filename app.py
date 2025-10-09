@@ -395,14 +395,15 @@ def main():
         <style>
         .block-container { padding: 0.5rem; }
         .stSelectbox, .stTextInput, .stNumberInput, .stCheckbox, .stRadio, .stFileUploader, .stTextArea {
-            margin-bottom: 0.2rem;
+            margin-bottom: 0.1rem;
         }
-        .stTextArea { height: 80px !important; }
-        .stButton > button { width: 100%; padding: 0.2rem; }
-        h1 { font-size: 1.4rem; margin-bottom: 0.3rem; }
-        h3 { font-size: 1.1rem; margin-bottom: 0.2rem; }
-        label { font-size: 0.9rem !important; }
-        .stMarkdown { font-size: 0.85rem; }
+        .stTextArea { height: 60px !important; }
+        .stButton > button { width: 100%; padding: 0.1rem; }
+        h1 { font-size: 1.3rem; margin-bottom: 0.2rem; }
+        h3 { font-size: 1.0rem; margin-bottom: 0.1rem; }
+        label { font-size: 0.8rem !important; }
+        .stMarkdown { font-size: 0.8rem; }
+        .stCheckbox > label { display: none; }
         </style>
     """, unsafe_allow_html=True)
 
@@ -413,7 +414,7 @@ def main():
                             label_visibility="visible")
     st.session_state.current_language = language[1]
 
-    st.title(get_text('header'), help="Выберите настройки, загрузите DOCX или введите ссылки, затем нажмите 'Обработать'.")
+    st.title(get_text('header'), help="Выберите настройки, укажите элементы, загрузите DOCX или введите ссылки, затем нажмите 'Обработать'.")
 
     # Трёхколоночный макет
     col1, col2, col3 = st.columns([1, 1, 1])
@@ -435,8 +436,8 @@ def main():
         available_elements = ["", "Authors", "Title", "Journal", "Year", "Volume", "Issue", "Pages", "DOI"]
         element_configs = []
         used_elements = set()
-        st.write(f"{get_text('element')} | {get_text('italic')} | {get_text('bold')} | {get_text('parentheses')} | {get_text('separator')}")
-        for i in range(2):  # Ограничим до 2 элементов для компактности
+        st.markdown(f"<small>{get_text('element')} | {get_text('italic')} | {get_text('bold')} | {get_text('parentheses')} | {get_text('separator')}</small>", unsafe_allow_html=True)
+        for i in range(8):  # Все 8 элементов
             cols = st.columns([2, 1, 1, 1, 2])
             with cols[0]:
                 element = st.selectbox("", available_elements, key=f"el{i}")
@@ -447,7 +448,7 @@ def main():
             with cols[3]:
                 parentheses = st.checkbox("", key=f"pr{i}")
             with cols[4]:
-                separator = st.text_input("", value=". ", key=f"sp{i}")
+                separator = st.text_input("", value=". ", key=f"sp{i}", label_visibility="collapsed")
             if element and element not in used_elements:
                 element_configs.append((element, {'italic': italic, 'bold': bold, 'parentheses': parentheses, 'separator': separator}))
                 used_elements.add(element)
@@ -493,12 +494,12 @@ def main():
         if input_method == 'DOCX':
             uploaded_file = st.file_uploader(get_text('select_docx'), type=['docx'], label_visibility="collapsed")
         else:
-            references_input = st.text_area(get_text('references'), placeholder=get_text('enter_references'), height=80)
+            references_input = st.text_area(get_text('references'), placeholder=get_text('enter_references'), height=60)
 
         # Вывод
         st.subheader(get_text('data_output'))
         output_method = st.radio(get_text('output_method'), ['DOCX', 'Text' if st.session_state.current_language == 'en' else 'Текст'], horizontal=True)
-        output_text = st.text_area(get_text('results'), placeholder=get_text('results'), height=80, disabled=True)
+        output_text = st.text_area(get_text('results'), placeholder=get_text('results'), height=60, disabled=True)
 
         # Кнопка обработки
         if st.button(get_text('process')):
@@ -583,7 +584,7 @@ def main():
 
     # Обновление текстового поля результатов
     if 'output_text' in st.session_state:
-        st.text_area(get_text('results'), value=st.session_state['output_text'], height=80, disabled=True)
+        st.text_area(get_text('results'), value=st.session_state['output_text'], height=60, disabled=True)
 
 if __name__ == "__main__":
     main()
