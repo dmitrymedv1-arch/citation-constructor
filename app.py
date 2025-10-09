@@ -12,12 +12,53 @@ import base64
 
 works = Works()
 
-# Упрощённый словарь переводов
+# Полный словарь переводов
 TRANSLATIONS = {
+    'en': {
+        'header': '🎨 Citation Style Constructor',
+        'general_settings': '⚙️ General Settings',
+        'element_config': '📑 Element Configuration',
+        'style_preview': '👀 Style Preview',
+        'data_input': '📁 Data Input',
+        'data_output': '📤 Data Output',
+        'numbering_style': 'Numbering:',
+        'author_format': 'Authors:',
+        'author_separator': 'Separator:',
+        'et_al_limit': 'Et al after:',
+        'use_and': "'and'",
+        'doi_format': 'DOI format:',
+        'doi_hyperlink': 'DOI as hyperlink',
+        'page_format': 'Pages:',
+        'final_punctuation': 'Punctuation:',
+        'element': 'Element',
+        'italic': 'Italic',
+        'bold': 'Bold',
+        'parentheses': 'Parentheses',
+        'separator': 'Separator',
+        'input_method': 'Input:',
+        'output_method': 'Output:',
+        'select_docx': 'Select DOCX',
+        'enter_references': 'Enter references (one per line)',
+        'references': 'References:',
+        'results': 'Results:',
+        'process': '🚀 Process',
+        'example': 'Example:',
+        'error_select_element': 'Select at least one element!',
+        'processing': '⏳ Processing...',
+        'upload_file': 'Upload a file!',
+        'enter_references_error': 'Enter references!',
+        'select_docx_output': 'Select DOCX output to download!',
+        'doi_txt': '📄 DOI (TXT)',
+        'references_docx': '📋 References (DOCX)',
+        'found_references': 'Found {} references.',
+        'found_references_text': 'Found {} references in text.',
+        'statistics': 'Statistics: {} DOI found, {} not found.',
+        'language': 'Language:'
+    },
     'ru': {
         'header': '🎨 Конструктор стилей цитирования',
         'general_settings': '⚙️ Настройки',
-        'element_config': '📑 Элементы',
+        'element_config': '📑 Конфигурация элементов',
         'style_preview': '👀 Предпросмотр',
         'data_input': '📁 Ввод',
         'data_output': '📤 Вывод',
@@ -52,11 +93,12 @@ TRANSLATIONS = {
         'references_docx': '📋 Ссылки (DOCX)',
         'found_references': 'Найдено {} ссылок.',
         'found_references_text': 'Найдено {} ссылок в тексте.',
-        'statistics': 'Статистика: {} DOI найдено, {} не найдено.'
+        'statistics': 'Статистика: {} DOI найдено, {} не найдено.',
+        'language': 'Язык:'
     }
 }
 
-# Хранение языка
+# Хранение текущего языка
 if 'current_language' not in st.session_state:
     st.session_state.current_language = 'ru'
 
@@ -147,7 +189,7 @@ def format_authors(authors, author_format, separator, et_al_limit, use_and):
             author_str += f"{family}, {first_initial}.{second_initial}." if second_initial else f"{family}, {first_initial}."
         if i < len(authors[:limit]) - 1:
             if i == len(authors[:limit]) - 2 and use_and:
-                author_str += " и "
+                author_str += " and " if st.session_state.current_language == 'en' else " и "
             else:
                 author_str += separator
     if et_al_limit and len(authors) > et_al_limit and not use_and:
@@ -199,7 +241,7 @@ def add_hyperlink(paragraph, text, url):
 
 def format_reference(metadata, style_config, for_preview=False):
     if not metadata:
-        return ("Ошибка: Не удалось отформатировать ссылку.", True)
+        return ("Ошибка: Не удалось отформатировать ссылку." if st.session_state.current_language == 'ru' else "Error: Could not format the reference.", True)
     elements = []
     for i, (element, config) in enumerate(style_config['elements']):
         value = ""
@@ -271,10 +313,10 @@ def process_references(references, style_config):
     formatted_refs = []
     doi_found_count = 0
     doi_not_found_count = 0
-    progress_bar = tqdm(total=len(references), desc="Обработка ссылок")
+    progress_bar = tqdm(total=len(references), desc=get_text('processing'))
     for ref in references:
         if is_section_header(ref):
-            doi_list.append(f"{ref} [ЗАГОЛОВОК - ПРОПУЩЕНО]")
+            doi_list.append(f"{ref} [SECTION HEADER - SKIPPED]")
             formatted_refs.append((ref, False, None))
             progress_bar.update(1)
             continue
@@ -288,16 +330,16 @@ def process_references(references, style_config):
                 if not is_error:
                     doi_found_count += 1
                 else:
-                    doi_list[-1] = f"{ref}\nПроверьте источник и добавьте DOI вручную."
-                    formatted_refs.append((f"{ref} Проверьте источник и добавьте DOI вручную.", True, None))
+                    doi_list[-1] = f"{ref}\nПроверьте источник и добавьте DOI вручную." if st.session_state.current_language == 'ru' else f"{ref}\nPlease check this source and insert the DOI manually."
+                    formatted_refs.append((f"{ref} Проверьте источник и добавьте DOI вручную." if st.session_state.current_language == 'ru' else f"{ref} Please check this source and insert the DOI manually.", True, None))
                     doi_not_found_count += 1
             else:
-                doi_list[-1] = f"{ref}\nПроверьте источник и добавьте DOI вручную."
-                formatted_refs.append((f"{ref} Проверьте источник и добавьте DOI вручную.", True, None))
+                doi_list[-1] = f"{ref}\nПроверьте источник и добавьте DOI вручную." if st.session_state.current_language == 'ru' else f"{ref}\nPlease check this source and insert the DOI manually."
+                formatted_refs.append((f"{ref} Проверьте источник и добавьте DOI вручную." if st.session_state.current_language == 'ru' else f"{ref} Please check this source and insert the DOI manually.", True, None))
                 doi_not_found_count += 1
         else:
-            doi_list.append(f"{ref}\nПроверьте источник и добавьте DOI вручную.")
-            formatted_refs.append((f"{ref} Проверьте источник и добавьте DOI вручную.", True, None))
+            doi_list.append(f"{ref}\nПроверьте источник и добавьте DOI вручную." if st.session_state.current_language == 'ru' else f"{ref}\nPlease check this source and insert the DOI manually.")
+            formatted_refs.append((f"{ref} Проверьте источник и добавьте DOI вручную." if st.session_state.current_language == 'ru' else f"{ref} Please check this source and insert the DOI manually.", True, None))
             doi_not_found_count += 1
         progress_bar.update(1)
     progress_bar.close()
@@ -315,7 +357,7 @@ def process_docx(input_file, style_config):
     st.write(f"**{get_text('found_references').format(len(references))}**")
     formatted_refs, txt_bytes, doi_found_count, doi_not_found_count = process_references(references, style_config)
     output_doc = Document()
-    output_doc.add_heading('Ссылки в пользовательском стиле', level=1)
+    output_doc.add_heading('References in Custom Style' if st.session_state.current_language == 'en' else 'Ссылки в пользовательском стиле', level=1)
     for i, (elements, is_error, metadata) in enumerate(formatted_refs, 1):
         numbering = style_config['numbering_style']
         prefix = "" if numbering == "No numbering" else f"{i}{numbering[-1] if numbering != '1' else ''} "
@@ -348,44 +390,53 @@ def process_docx(input_file, style_config):
 
 # Компактный интерфейс Streamlit
 def main():
-    st.set_page_config(layout="centered")
+    st.set_page_config(layout="wide")
     st.markdown("""
         <style>
-        .block-container { padding: 1rem; }
+        .block-container { padding: 0.5rem; }
         .stSelectbox, .stTextInput, .stNumberInput, .stCheckbox, .stRadio, .stFileUploader, .stTextArea {
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.2rem;
         }
-        .stTextArea { height: 100px !important; }
-        .stButton > button { width: 100%; }
-        h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
-        h3 { font-size: 1.2rem; margin-bottom: 0.3rem; }
+        .stTextArea { height: 80px !important; }
+        .stButton > button { width: 100%; padding: 0.2rem; }
+        h1 { font-size: 1.4rem; margin-bottom: 0.3rem; }
+        h3 { font-size: 1.1rem; margin-bottom: 0.2rem; }
+        label { font-size: 0.9rem !important; }
+        .stMarkdown { font-size: 0.85rem; }
         </style>
     """, unsafe_allow_html=True)
 
+    # Переключение языка
+    language = st.selectbox(get_text('language'), [('Русский', 'ru'), ('English', 'en')], 
+                            format_func=lambda x: x[0], 
+                            index=0 if st.session_state.current_language == 'ru' else 1,
+                            label_visibility="visible")
+    st.session_state.current_language = language[1]
+
     st.title(get_text('header'), help="Выберите настройки, загрузите DOCX или введите ссылки, затем нажмите 'Обработать'.")
 
-    # Настройки
-    with st.expander(get_text('general_settings'), expanded=True):
-        col1, col2 = st.columns(2)
-        with col1:
-            numbering_style = st.selectbox(get_text('numbering_style'), ["No numbering", "1", "1.", "1)", "(1)", "[1]"], key="num")
-            author_format = st.selectbox(get_text('author_format'), ["AA Smith", "A.A. Smith", "Smith AA", "Smith A.A", "Smith, A.A."], key="auth")
-            author_separator = st.selectbox(get_text('author_separator'), [", ", "; "], key="sep")
-        with col2:
-            et_al_limit = st.number_input(get_text('et_al_limit'), min_value=0, step=1, key="etal")
-            use_and = st.checkbox(get_text('use_and'), key="and")
-            doi_format = st.selectbox(get_text('doi_format'), ["10.10/xxx", "doi:10.10/xxx", "DOI:10.10/xxx", "https://dx.doi.org/10.10/xxx"], key="doi")
+    # Трёхколоночный макет
+    col1, col2, col3 = st.columns([1, 1, 1])
+
+    with col1:
+        st.subheader(get_text('general_settings'))
+        numbering_style = st.selectbox(get_text('numbering_style'), ["No numbering", "1", "1.", "1)", "(1)", "[1]"], key="num")
+        author_format = st.selectbox(get_text('author_format'), ["AA Smith", "A.A. Smith", "Smith AA", "Smith A.A", "Smith, A.A."], key="auth")
+        author_separator = st.selectbox(get_text('author_separator'), [", ", "; "], key="sep")
+        et_al_limit = st.number_input(get_text('et_al_limit'), min_value=0, step=1, key="etal")
+        use_and = st.checkbox(get_text('use_and'), key="and")
+        doi_format = st.selectbox(get_text('doi_format'), ["10.10/xxx", "doi:10.10/xxx", "DOI:10.10/xxx", "https://dx.doi.org/10.10/xxx"], key="doi")
         doi_hyperlink = st.checkbox(get_text('doi_hyperlink'), key="doilink")
         page_format = st.selectbox(get_text('page_format'), ["122 - 128", "122-128", "122 – 128", "122–128", "122–8"], key="page")
         final_punctuation = st.selectbox(get_text('final_punctuation'), ["", "."], key="punct")
 
-    # Конфигурация элементов
-    with st.expander(get_text('element_config'), expanded=False):
+    with col2:
+        st.subheader(get_text('element_config'))
         available_elements = ["", "Authors", "Title", "Journal", "Year", "Volume", "Issue", "Pages", "DOI"]
         element_configs = []
         used_elements = set()
         st.write(f"{get_text('element')} | {get_text('italic')} | {get_text('bold')} | {get_text('parentheses')} | {get_text('separator')}")
-        for i in range(3):  # Ограничим до 3 элементов для компактности
+        for i in range(2):  # Ограничим до 2 элементов для компактности
             cols = st.columns([2, 1, 1, 1, 2])
             with cols[0]:
                 element = st.selectbox("", available_elements, key=f"el{i}")
@@ -401,135 +452,138 @@ def main():
                 element_configs.append((element, {'italic': italic, 'bold': bold, 'parentheses': parentheses, 'separator': separator}))
                 used_elements.add(element)
 
-    # Предпросмотр
-    st.subheader(get_text('style_preview'))
-    style_config = {
-        'author_format': author_format,
-        'author_separator': author_separator,
-        'et_al_limit': et_al_limit if et_al_limit > 0 else None,
-        'use_and': use_and,
-        'doi_format': doi_format,
-        'doi_hyperlink': doi_hyperlink,
-        'page_format': page_format,
-        'final_punctuation': final_punctuation,
-        'numbering_style': numbering_style,
-        'elements': element_configs
-    }
-    if not style_config['elements']:
-        st.markdown(f"<b style='color:red;'>{get_text('error_select_element')}</b>", unsafe_allow_html=True)
-    else:
-        preview_metadata = {
-            'authors': [{'given': 'Иван А.', 'family': 'Иванов'}, {'given': 'Анна Б.', 'family': 'Петрова'}],
-            'title': 'Название статьи',
-            'journal': 'Название журнала',
-            'year': 2020,
-            'volume': '15',
-            'issue': '3',
-            'pages': '122-128',
-            'article_number': 'e12345',
-            'doi': '10.1000/xyz123'
+    with col3:
+        # Предпросмотр
+        st.subheader(get_text('style_preview'))
+        style_config = {
+            'author_format': author_format,
+            'author_separator': author_separator,
+            'et_al_limit': et_al_limit if et_al_limit > 0 else None,
+            'use_and': use_and,
+            'doi_format': doi_format,
+            'doi_hyperlink': doi_hyperlink,
+            'page_format': page_format,
+            'final_punctuation': final_punctuation,
+            'numbering_style': numbering_style,
+            'elements': element_configs
         }
-        preview_ref, _ = format_reference(preview_metadata, style_config, for_preview=True)
-        numbering = style_config['numbering_style']
-        preview_ref = preview_ref if numbering == "No numbering" else f"1{numbering[-1] if numbering != '1' else ''} {preview_ref}"
-        st.markdown(f"<small>{get_text('example')} {preview_ref}</small>", unsafe_allow_html=True)
+        if not style_config['elements']:
+            st.markdown(f"<b style='color:red;'>{get_text('error_select_element')}</b>", unsafe_allow_html=True)
+        else:
+            preview_metadata = {
+                'authors': [{'given': 'John A.' if st.session_state.current_language == 'en' else 'Иван А.', 'family': 'Smith' if st.session_state.current_language == 'en' else 'Иванов'}, 
+                            {'given': 'Alice B.' if st.session_state.current_language == 'en' else 'Анна Б.', 'family': 'Doe' if st.session_state.current_language == 'en' else 'Петрова'}],
+                'title': 'Article Title' if st.session_state.current_language == 'en' else 'Название статьи',
+                'journal': 'Journal Name' if st.session_state.current_language == 'en' else 'Название журнала',
+                'year': 2020,
+                'volume': '15',
+                'issue': '3',
+                'pages': '122-128',
+                'article_number': 'e12345',
+                'doi': '10.1000/xyz123'
+            }
+            preview_ref, _ = format_reference(preview_metadata, style_config, for_preview=True)
+            numbering = style_config['numbering_style']
+            preview_ref = preview_ref if numbering == "No numbering" else f"1{numbering[-1] if numbering != '1' else ''} {preview_ref}"
+            st.markdown(f"<small>{get_text('example')} {preview_ref}</small>", unsafe_allow_html=True)
 
-    # Ввод и вывод
-    with st.expander(get_text('data_input'), expanded=True):
-        input_method = st.radio(get_text('input_method'), ['DOCX', 'Текст'], horizontal=True)
+        # Ввод
+        st.subheader(get_text('data_input'))
+        input_method = st.radio(get_text('input_method'), ['DOCX', 'Text' if st.session_state.current_language == 'en' else 'Текст'], horizontal=True)
         if input_method == 'DOCX':
             uploaded_file = st.file_uploader(get_text('select_docx'), type=['docx'], label_visibility="collapsed")
         else:
-            references_input = st.text_area(get_text('references'), placeholder=get_text('enter_references'), height=100)
+            references_input = st.text_area(get_text('references'), placeholder=get_text('enter_references'), height=80)
 
-    with st.expander(get_text('data_output'), expanded=True):
-        output_method = st.radio(get_text('output_method'), ['DOCX', 'Текст'], horizontal=True)
-        output_text = st.text_area(get_text('results'), placeholder=get_text('results'), height=100, disabled=True)
+        # Вывод
+        st.subheader(get_text('data_output'))
+        output_method = st.radio(get_text('output_method'), ['DOCX', 'Text' if st.session_state.current_language == 'en' else 'Текст'], horizontal=True)
+        output_text = st.text_area(get_text('results'), placeholder=get_text('results'), height=80, disabled=True)
 
-    # Кнопка обработки
-    if st.button(get_text('process')):
-        if not style_config['elements']:
-            st.error(get_text('error_select_element'))
-            return
-        if input_method == 'DOCX':
-            if not uploaded_file:
-                st.error(get_text('upload_file'))
+        # Кнопка обработки
+        if st.button(get_text('process')):
+            if not style_config['elements']:
+                st.error(get_text('error_select_element'))
                 return
-            formatted_refs, txt_bytes, output_doc_buffer = process_docx(uploaded_file, style_config)
-        else:
-            if not references_input.strip():
-                st.error(get_text('enter_references_error'))
-                return
-            references = [ref.strip() for ref in references_input.split('\n') if ref.strip()]
-            st.write(f"**{get_text('found_references_text').format(len(references))}**")
-            formatted_refs, txt_bytes, _, _ = process_references(references, style_config)
-            output_doc = Document()
-            output_doc.add_heading('Ссылки в пользовательском стиле', level=1)
-            for i, (elements, is_error, metadata) in enumerate(formatted_refs, 1):
-                numbering = style_config['numbering_style']
-                prefix = "" if numbering == "No numbering" else f"{i}{numbering[-1] if numbering != '1' else ''} "
-                para = output_doc.add_paragraph(prefix)
-                if is_error:
-                    run = para.add_run(str(elements))
-                    apply_yellow_background(run)
-                else:
-                    for j, (value, italic, bold, separator, is_doi_hyperlink, doi_value) in enumerate(elements):
-                        if is_doi_hyperlink and doi_value:
-                            add_hyperlink(para, value, f"https://doi.org/{doi_value}")
-                        else:
-                            run = para.add_run(value)
-                            if italic:
-                                run.font.italic = True
-                            if bold:
-                                run.font.bold = True
-                        if separator and j < len(elements) - 1:
-                            para.add_run(separator)
-                    if style_config['final_punctuation'] and not is_error:
-                        para.add_run(".")
-            output_doc_buffer = io.BytesIO()
-            output_doc.save(output_doc_buffer)
-            output_doc_buffer.seek(0)
+            if input_method == 'DOCX':
+                if not uploaded_file:
+                    st.error(get_text('upload_file'))
+                    return
+                formatted_refs, txt_bytes, output_doc_buffer = process_docx(uploaded_file, style_config)
+            else:
+                if not references_input.strip():
+                    st.error(get_text('enter_references_error'))
+                    return
+                references = [ref.strip() for ref in references_input.split('\n') if ref.strip()]
+                st.write(f"**{get_text('found_references_text').format(len(references))}**")
+                formatted_refs, txt_bytes, _, _ = process_references(references, style_config)
+                output_doc = Document()
+                output_doc.add_heading('References in Custom Style' if st.session_state.current_language == 'en' else 'Ссылки в пользовательском стиле', level=1)
+                for i, (elements, is_error, metadata) in enumerate(formatted_refs, 1):
+                    numbering = style_config['numbering_style']
+                    prefix = "" if numbering == "No numbering" else f"{i}{numbering[-1] if numbering != '1' else ''} "
+                    para = output_doc.add_paragraph(prefix)
+                    if is_error:
+                        run = para.add_run(str(elements))
+                        apply_yellow_background(run)
+                    else:
+                        for j, (value, italic, bold, separator, is_doi_hyperlink, doi_value) in enumerate(elements):
+                            if is_doi_hyperlink and doi_value:
+                                add_hyperlink(para, value, f"https://doi.org/{doi_value}")
+                            else:
+                                run = para.add_run(value)
+                                if italic:
+                                    run.font.italic = True
+                                if bold:
+                                    run.font.bold = True
+                            if separator and j < len(elements) - 1:
+                                para.add_run(separator)
+                        if style_config['final_punctuation'] and not is_error:
+                            para.add_run(".")
+                output_doc_buffer = io.BytesIO()
+                output_doc.save(output_doc_buffer)
+                output_doc_buffer.seek(0)
 
-        if output_method == 'Текст':
-            output_text_value = ""
-            for i, (elements, is_error, metadata) in enumerate(formatted_refs, 1):
-                numbering = style_config['numbering_style']
-                prefix = "" if numbering == "No numbering" else f"{i}{numbering[-1] if numbering != '1' else ''} "
-                if is_error:
-                    output_text_value += f"{prefix}{elements}\n"
-                else:
-                    ref_str = ""
-                    for j, (value, _, _, separator, _, _) in enumerate(elements):
-                        ref_str += value
-                        if separator and j < len(elements) - 1:
-                            ref_str += separator
-                        elif j == len(elements) - 1 and style_config['final_punctuation']:
-                            ref_str = ref_str.rstrip(',.') + "."
-                    output_text_value += f"{prefix}{ref_str}\n"
-            st.session_state['output_text'] = output_text_value
-        else:
-            st.session_state['output_text'] = ""
+            if output_method == 'Text' if st.session_state.current_language == 'en' else 'Текст':
+                output_text_value = ""
+                for i, (elements, is_error, metadata) in enumerate(formatted_refs, 1):
+                    numbering = style_config['numbering_style']
+                    prefix = "" if numbering == "No numbering" else f"{i}{numbering[-1] if numbering != '1' else ''} "
+                    if is_error:
+                        output_text_value += f"{prefix}{elements}\n"
+                    else:
+                        ref_str = ""
+                        for j, (value, _, _, separator, _, _) in enumerate(elements):
+                            ref_str += value
+                            if separator and j < len(elements) - 1:
+                                ref_str += separator
+                            elif j == len(elements) - 1 and style_config['final_punctuation']:
+                                ref_str = ref_str.rstrip(',.') + "."
+                        output_text_value += f"{prefix}{ref_str}\n"
+                st.session_state['output_text'] = output_text_value
+            else:
+                st.session_state['output_text'] = ""
 
-        # Кнопки скачивания
-        st.download_button(
-            label=get_text('doi_txt'),
-            data=txt_bytes,
-            file_name='doi_list.txt',
-            mime='text/plain'
-        )
-        if output_method == 'DOCX':
+            # Кнопки скачивания
             st.download_button(
-                label=get_text('references_docx'),
-                data=output_doc_buffer,
-                file_name='references_custom.docx',
-                mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                label=get_text('doi_txt'),
+                data=txt_bytes,
+                file_name='doi_list.txt',
+                mime='text/plain'
             )
-        else:
-            st.error(get_text('select_docx_output'))
+            if output_method == 'DOCX':
+                st.download_button(
+                    label=get_text('references_docx'),
+                    data=output_doc_buffer,
+                    file_name='references_custom.docx',
+                    mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                )
+            else:
+                st.error(get_text('select_docx_output'))
 
     # Обновление текстового поля результатов
     if 'output_text' in st.session_state:
-        st.text_area(get_text('results'), value=st.session_state['output_text'], height=100, disabled=True)
+        st.text_area(get_text('results'), value=st.session_state['output_text'], height=80, disabled=True)
 
 if __name__ == "__main__":
     main()
