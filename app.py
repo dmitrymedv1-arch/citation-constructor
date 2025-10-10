@@ -120,9 +120,11 @@ TRANSLATIONS = {
 if 'current_language' not in st.session_state:
     st.session_state.current_language = 'ru'
 
-# Хранение импортированного стиля
+# Хранение импортированного стиля и флага применения
 if 'imported_style' not in st.session_state:
     st.session_state.imported_style = None
+if 'style_applied' not in st.session_state:
+    st.session_state.style_applied = False
 
 def get_text(key):
     return TRANSLATIONS[st.session_state.current_language].get(key, key)
@@ -526,11 +528,6 @@ def import_style(uploaded_file):
         st.error(f"{get_text('import_error')}: {str(e)}")
         return None
 
-def apply_imported_style(imported_style):
-    """Apply imported style configuration"""
-    st.session_state.imported_style = imported_style
-    st.rerun()
-
 # Компактный интерфейс Streamlit
 def main():
     st.set_page_config(layout="wide")
@@ -563,36 +560,27 @@ def main():
 
     st.title(get_text('header'))
 
-    # Применяем импортированный стиль если он есть
-    if st.session_state.imported_style is not None:
+    # Обработка импортированного стиля
+    if st.session_state.imported_style is not None and not st.session_state.style_applied:
         imported_style = st.session_state.imported_style
-        st.session_state.imported_style = None  # Сбрасываем после применения
         
-        # Используем callback для безопасного применения стиля
-        st.success(get_text('import_success'))
+        # Применяем стиль только один раз
+        st.session_state.style_applied = True
         
-        # Создаем временные переменные для применения стиля
-        temp_style = {
-            'num': imported_style.get('numbering_style', "No numbering"),
-            'auth': imported_style.get('author_format', "AA Smith"),
-            'sep': imported_style.get('author_separator', ", "),
-            'etal': imported_style.get('et_al_limit', 0) or 0,
-            'use_and_checkbox': imported_style.get('use_and_bool', False),
-            'doi': imported_style.get('doi_format', "10.10/xxx"),
-            'doilink': imported_style.get('doi_hyperlink', True),
-            'page': imported_style.get('page_format', "122–128"),
-            'punct': imported_style.get('final_punctuation', ""),
-            'gost_style': imported_style.get('gost_style', False),
-            'elements': imported_style.get('elements', [])
-        }
+        # Обновляем значения в session_state
+        st.session_state.num = imported_style.get('numbering_style', "No numbering")
+        st.session_state.auth = imported_style.get('author_format', "AA Smith")
+        st.session_state.sep = imported_style.get('author_separator', ", ")
+        st.session_state.etal = imported_style.get('et_al_limit', 0) or 0
+        st.session_state.use_and_checkbox = imported_style.get('use_and_bool', False)
+        st.session_state.doi = imported_style.get('doi_format', "10.10/xxx")
+        st.session_state.doilink = imported_style.get('doi_hyperlink', True)
+        st.session_state.page = imported_style.get('page_format', "122–128")
+        st.session_state.punct = imported_style.get('final_punctuation', "")
+        st.session_state.gost_style = imported_style.get('gost_style', False)
         
-        # Обновляем значения через st.session_state перед созданием виджетов
-        for key, value in temp_style.items():
-            if key not in ['elements', 'gost_style']:
-                st.session_state[key] = value
-        
-        # Для элементов нужно обработать отдельно
-        elements = temp_style['elements']
+        # Применяем элементы
+        elements = imported_style.get('elements', [])
         for i in range(8):
             if i < len(elements):
                 element, config = elements[i]
@@ -607,6 +595,8 @@ def main():
                 st.session_state[f"bd{i}"] = False
                 st.session_state[f"pr{i}"] = False
                 st.session_state[f"sp{i}"] = ". "
+        
+        st.success(get_text('import_success'))
 
     # Трёхколоночный макет
     col1, col2, col3 = st.columns([1, 1, 1])
@@ -637,6 +627,7 @@ def main():
             
             # Set GOST style flag
             st.session_state.gost_style = True
+            st.session_state.style_applied = True
             st.rerun()
         
         # Инициализация значений по умолчанию
@@ -649,7 +640,8 @@ def main():
             'doi': "10.10/xxx",
             'doilink': True,
             'page': "122–128",
-            'punct': ""
+            'punct': "",
+            'gost_style': False
         }
         
         for key, default in default_values.items():
@@ -900,8 +892,10 @@ def main():
         if imported_file is not None:
             imported_style = import_style(imported_file)
             if imported_style:
-                # Сохраняем импортированный стиль и перезагружаем страницу
-                apply_imported_style(imported_style)
+                # Сохраняем импортированный стиль и сбрасываем флаг применения
+                st.session_state.imported_style = imported_style
+                st.session_state.style_applied = False
+                st.rerun()
 
     # Обновление текстового поля результатов
     if 'output_text' in st.session_state:
