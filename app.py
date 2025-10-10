@@ -1,5 +1,6 @@
 import streamlit as st
 import re
+import json
 from crossref.restful import Works
 from docx import Document
 from docx.oxml.ns import qn
@@ -53,7 +54,18 @@ TRANSLATIONS = {
         'found_references': 'Found {} references.',
         'found_references_text': 'Found {} references in text.',
         'statistics': 'Statistics: {} DOI found, {} not found.',
-        'language': 'Language:'
+        'language': 'Language:',
+        'gost_style': 'Apply GOST Style',
+        'style_management': '💾 Style Management',
+        'save_style': 'Save Style',
+        'load_style': 'Load Style',
+        'style_name': 'Style Name:',
+        'save_success': 'Style saved successfully!',
+        'load_success': 'Style loaded successfully!',
+        'no_style_selected': 'No style selected!',
+        'saved_styles': 'Saved Styles:',
+        'delete_style': 'Delete',
+        'style_deleted': 'Style deleted!'
     },
     'ru': {
         'header': '🎨 Конструктор стилей цитирования',
@@ -94,7 +106,18 @@ TRANSLATIONS = {
         'found_references': 'Найдено {} ссылок.',
         'found_references_text': 'Найдено {} ссылок в тексте.',
         'statistics': 'Статистика: {} DOI найдено, {} не найдено.',
-        'language': 'Язык:'
+        'language': 'Язык:',
+        'gost_style': 'Применить стиль ГОСТ',
+        'style_management': '💾 Управление стилями',
+        'save_style': 'Сохранить стиль',
+        'load_style': 'Загрузить стиль',
+        'style_name': 'Название стиля:',
+        'save_success': 'Стиль сохранен успешно!',
+        'load_success': 'Стиль загружен успешно!',
+        'no_style_selected': 'Стиль не выбран!',
+        'saved_styles': 'Сохраненные стили:',
+        'delete_style': 'Удалить',
+        'style_deleted': 'Стиль удален!'
     }
 }
 
@@ -102,10 +125,14 @@ TRANSLATIONS = {
 if 'current_language' not in st.session_state:
     st.session_state.current_language = 'ru'
 
+# Хранение сохраненных стилей
+if 'saved_styles' not in st.session_state:
+    st.session_state.saved_styles = {}
+
 def get_text(key):
     return TRANSLATIONS[st.session_state.current_language].get(key, key)
 
-# Функции обработки (без изменений)
+# Функции обработки
 def clean_text(text):
     return re.sub(r'<[^>]+>|&[^;]+;', '', text).strip()
 
@@ -242,6 +269,11 @@ def add_hyperlink(paragraph, text, url):
 def format_reference(metadata, style_config, for_preview=False):
     if not metadata:
         return ("Ошибка: Не удалось отформатировать ссылку." if st.session_state.current_language == 'ru' else "Error: Could not format the reference.", True)
+    
+    # Check if GOST style is enabled
+    if style_config.get('gost_style', False):
+        return format_gost_reference(metadata, style_config, for_preview)
+    
     elements = []
     for i, (element, config) in enumerate(style_config['elements']):
         value = ""
@@ -301,6 +333,77 @@ def format_reference(metadata, style_config, for_preview=False):
                 ref_str = ref_str.rstrip(',.') + "."
         return ref_str, False
     else:
+        return elements, False
+
+def format_gost_reference(metadata, style_config, for_preview=False):
+    """Format reference according to GOST standard"""
+    if not metadata:
+        return ("Ошибка: Не удалось отформатировать ссылку." if st.session_state.current_language == 'ru' else "Error: Could not format the reference.", True)
+    
+    # Format first author for main part
+    first_author = ""
+    if metadata['authors']:
+        author = metadata['authors'][0]
+        given = author['given']
+        family = author['family']
+        initials = given.split()[:2]
+        first_initial = initials[0][0] if initials else ''
+        second_initial = initials[1][0].upper() if len(initials) > 1 else ''
+        first_author = f"{family}, {first_initial}.{second_initial}." if second_initial else f"{family}, {first_initial}."
+    
+    # Format all authors for the / part
+    all_authors = ""
+    for i, author in enumerate(metadata['authors']):
+        given = author['given']
+        family = author['family']
+        initials = given.split()[:2]
+        first_initial = initials[0][0] if initials else ''
+        second_initial = initials[1][0].upper() if len(initials) > 1 else ''
+        author_str = f"{first_initial}.{second_initial}. {family}" if second_initial else f"{first_initial}. {family}"
+        all_authors += author_str
+        if i < len(metadata['authors']) - 1:
+            all_authors += ", "
+    
+    # Format pages with en-dash instead of hyphen
+    pages = metadata['pages']
+    if pages and '-' in pages:
+        start_page, end_page = pages.split('-')
+        pages = f"{start_page.strip()}–{end_page.strip()}"  # Using en-dash
+    elif pages:
+        pages = pages.strip()
+    
+    # Determine language and set volume/page labels
+    is_russian = st.session_state.current_language == 'ru'
+    volume_label = "Т." if is_russian else "Vol."
+    page_label = "С." if is_russian else "P."
+    issue_label = "№" if is_russian else "No."
+    
+    # Format DOI
+    doi_url = f"https://doi.org/{metadata['doi']}"
+    
+    # Build GOST reference with issue number if available
+    if metadata['issue']:
+        gost_ref = f"{first_author} {metadata['title']} / {all_authors} // {metadata['journal']}. – {metadata['year']}. – {volume_label} {metadata['volume']}. – {issue_label} {metadata['issue']}. – {page_label} {pages}. – {doi_url}"
+    else:
+        gost_ref = f"{first_author} {metadata['title']} / {all_authors} // {metadata['journal']}. – {metadata['year']}. – {volume_label} {metadata['volume']}. – {page_label} {pages}. – {doi_url}"
+    
+    if for_preview:
+        return gost_ref, False
+    else:
+        # For actual document, return as multiple elements with only DOI as hyperlink
+        elements = []
+        
+        # Add all text before DOI as regular text
+        if metadata['issue']:
+            text_before_doi = f"{first_author} {metadata['title']} / {all_authors} // {metadata['journal']}. – {metadata['year']}. – {volume_label} {metadata['volume']}. – {issue_label} {metadata['issue']}. – {page_label} {pages}. – "
+        else:
+            text_before_doi = f"{first_author} {metadata['title']} / {all_authors} // {metadata['journal']}. – {metadata['year']}. – {volume_label} {metadata['volume']}. – {page_label} {pages}. – "
+        
+        elements.append((text_before_doi, False, False, "", False, None))
+        
+        # Add DOI as hyperlink
+        elements.append((doi_url, False, False, "", True, metadata['doi']))
+        
         return elements, False
 
 def apply_yellow_background(run):
@@ -388,6 +491,24 @@ def process_docx(input_file, style_config):
     output_doc_buffer.seek(0)
     return formatted_refs, txt_bytes, output_doc_buffer
 
+def save_style(style_name, style_config):
+    """Save style configuration"""
+    if style_name and style_name.strip():
+        st.session_state.saved_styles[style_name.strip()] = style_config
+        return True
+    return False
+
+def load_style(style_name):
+    """Load style configuration"""
+    return st.session_state.saved_styles.get(style_name)
+
+def delete_style(style_name):
+    """Delete saved style"""
+    if style_name in st.session_state.saved_styles:
+        del st.session_state.saved_styles[style_name]
+        return True
+    return False
+
 # Компактный интерфейс Streamlit
 def main():
     st.set_page_config(layout="wide")
@@ -421,6 +542,32 @@ def main():
 
     with col1:
         st.subheader(get_text('general_settings'))
+        
+        # Кнопка применения ГОСТ стиля
+        if st.button(get_text('gost_style'), use_container_width=True):
+            # Set GOST style configuration
+            st.session_state.num = "1."
+            st.session_state.auth = "Smith, A.A."
+            st.session_state.sep = ", "
+            st.session_state.etal = 0
+            st.session_state.and = False
+            st.session_state.doi = "https://dx.doi.org/10.10/xxx"
+            st.session_state.doilink = True
+            st.session_state.page = "122–128"
+            st.session_state.punct = ""
+            
+            # Clear all element configurations
+            for i in range(8):
+                st.session_state[f"el{i}"] = ""
+                st.session_state[f"it{i}"] = False
+                st.session_state[f"bd{i}"] = False
+                st.session_state[f"pr{i}"] = False
+                st.session_state[f"sp{i}"] = ". "
+            
+            # Set GOST style flag
+            st.session_state.gost_style = True
+            st.rerun()
+        
         numbering_style = st.selectbox(get_text('numbering_style'), ["No numbering", "1", "1.", "1)", "(1)", "[1]"], key="num")
         author_format = st.selectbox(get_text('author_format'), ["AA Smith", "A.A. Smith", "Smith AA", "Smith A.A", "Smith, A.A."], key="auth")
         author_separator = st.selectbox(get_text('author_separator'), [", ", "; "], key="sep")
@@ -430,6 +577,94 @@ def main():
         doi_hyperlink = st.checkbox(get_text('doi_hyperlink'), key="doilink")
         page_format = st.selectbox(get_text('page_format'), ["122 - 128", "122-128", "122 – 128", "122–128", "122–8"], key="page")
         final_punctuation = st.selectbox(get_text('final_punctuation'), ["", "."], key="punct")
+
+        # Управление стилями
+        st.subheader(get_text('style_management'))
+        
+        # Сохранение стиля
+        style_name = st.text_input(get_text('style_name'), placeholder="Введите название стиля")
+        if st.button(get_text('save_style'), use_container_width=True):
+            if style_name and style_name.strip():
+                style_config = {
+                    'author_format': st.session_state.auth,
+                    'author_separator': st.session_state.sep,
+                    'et_al_limit': st.session_state.etal if st.session_state.etal > 0 else None,
+                    'use_and': st.session_state.and,
+                    'doi_format': st.session_state.doi,
+                    'doi_hyperlink': st.session_state.doilink,
+                    'page_format': st.session_state.page,
+                    'final_punctuation': st.session_state.punct,
+                    'numbering_style': st.session_state.num,
+                    'elements': []
+                }
+                
+                # Сохраняем элементы
+                used_elements = set()
+                for i in range(8):
+                    element = st.session_state.get(f"el{i}", "")
+                    if element and element not in used_elements:
+                        element_config = {
+                            'italic': st.session_state.get(f"it{i}", False),
+                            'bold': st.session_state.get(f"bd{i}", False),
+                            'parentheses': st.session_state.get(f"pr{i}", False),
+                            'separator': st.session_state.get(f"sp{i}", ". ")
+                        }
+                        style_config['elements'].append((element, element_config))
+                        used_elements.add(element)
+                
+                if save_style(style_name.strip(), style_config):
+                    st.success(get_text('save_success'))
+                else:
+                    st.error("Ошибка сохранения стиля")
+            else:
+                st.error("Введите название стиля")
+        
+        # Загрузка стиля
+        if st.session_state.saved_styles:
+            st.write(get_text('saved_styles'))
+            for style_name in list(st.session_state.saved_styles.keys()):
+                cols = st.columns([3, 1, 1])
+                with cols[0]:
+                    if st.button(f"📁 {style_name}", key=f"load_{style_name}", use_container_width=True):
+                        style_config = load_style(style_name)
+                        if style_config:
+                            # Apply loaded style configuration
+                            st.session_state.num = style_config.get('numbering_style', "No numbering")
+                            st.session_state.auth = style_config.get('author_format', "AA Smith")
+                            st.session_state.sep = style_config.get('author_separator', ", ")
+                            st.session_state.etal = style_config.get('et_al_limit', 0) or 0
+                            st.session_state.and = style_config.get('use_and', False)
+                            st.session_state.doi = style_config.get('doi_format', "10.10/xxx")
+                            st.session_state.doilink = style_config.get('doi_hyperlink', True)
+                            st.session_state.page = style_config.get('page_format', "122–128")
+                            st.session_state.punct = style_config.get('final_punctuation', "")
+                            
+                            # Clear previous elements
+                            for i in range(8):
+                                st.session_state[f"el{i}"] = ""
+                                st.session_state[f"it{i}"] = False
+                                st.session_state[f"bd{i}"] = False
+                                st.session_state[f"pr{i}"] = False
+                                st.session_state[f"sp{i}"] = ". "
+                            
+                            # Apply loaded elements
+                            elements = style_config.get('elements', [])
+                            for i, (element, config) in enumerate(elements):
+                                if i < 8:
+                                    st.session_state[f"el{i}"] = element
+                                    st.session_state[f"it{i}"] = config.get('italic', False)
+                                    st.session_state[f"bd{i}"] = config.get('bold', False)
+                                    st.session_state[f"pr{i}"] = config.get('parentheses', False)
+                                    st.session_state[f"sp{i}"] = config.get('separator', ". ")
+                            
+                            st.session_state.gost_style = False
+                            st.success(get_text('load_success'))
+                            st.rerun()
+                with cols[2]:
+                    if st.button("🗑️", key=f"del_{style_name}"):
+                        if delete_style(style_name):
+                            st.success(get_text('style_deleted'))
+                            st.rerun()
 
     with col2:
         st.subheader(get_text('element_config'))
@@ -457,18 +692,37 @@ def main():
         # Предпросмотр
         st.subheader(get_text('style_preview'))
         style_config = {
-            'author_format': author_format,
-            'author_separator': author_separator,
-            'et_al_limit': et_al_limit if et_al_limit > 0 else None,
-            'use_and': use_and,
-            'doi_format': doi_format,
-            'doi_hyperlink': doi_hyperlink,
-            'page_format': page_format,
-            'final_punctuation': final_punctuation,
-            'numbering_style': numbering_style,
-            'elements': element_configs
+            'author_format': st.session_state.auth,
+            'author_separator': st.session_state.sep,
+            'et_al_limit': st.session_state.etal if st.session_state.etal > 0 else None,
+            'use_and': st.session_state.and,
+            'doi_format': st.session_state.doi,
+            'doi_hyperlink': st.session_state.doilink,
+            'page_format': st.session_state.page,
+            'final_punctuation': st.session_state.punct,
+            'numbering_style': st.session_state.num,
+            'elements': element_configs,
+            'gost_style': st.session_state.get('gost_style', False)
         }
-        if not style_config['elements']:
+        
+        if st.session_state.get('gost_style', False):
+            preview_metadata = {
+                'authors': [{'given': 'John A.' if st.session_state.current_language == 'en' else 'Иван А.', 'family': 'Smith' if st.session_state.current_language == 'en' else 'Иванов'}, 
+                            {'given': 'Alice B.' if st.session_state.current_language == 'en' else 'Анна Б.', 'family': 'Doe' if st.session_state.current_language == 'en' else 'Петрова'}],
+                'title': 'Article Title' if st.session_state.current_language == 'en' else 'Название статьи',
+                'journal': 'Journal Name' if st.session_state.current_language == 'en' else 'Название журнала',
+                'year': 2020,
+                'volume': '15',
+                'issue': '3',
+                'pages': '6498-6503',
+                'article_number': 'e12345',
+                'doi': '10.1000/xyz123'
+            }
+            preview_ref, _ = format_gost_reference(preview_metadata, style_config, for_preview=True)
+            numbering = style_config['numbering_style']
+            preview_ref = preview_ref if numbering == "No numbering" else f"1{numbering[-1] if numbering != '1' else ''} {preview_ref}"
+            st.markdown(f"<small>{get_text('example')} {preview_ref}</small>", unsafe_allow_html=True)
+        elif not style_config['elements']:
             st.markdown(f"<b style='color:red;'>{get_text('error_select_element')}</b>", unsafe_allow_html=True)
         else:
             preview_metadata = {
@@ -503,7 +757,7 @@ def main():
 
         # Кнопка обработки
         if st.button(get_text('process')):
-            if not style_config['elements']:
+            if not style_config['elements'] and not style_config.get('gost_style', False):
                 st.error(get_text('error_select_element'))
                 return
             if input_method == 'DOCX':
@@ -588,4 +842,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
