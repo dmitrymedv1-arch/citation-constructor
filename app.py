@@ -65,7 +65,14 @@ TRANSLATIONS = {
         'no_style_selected': 'No style selected!',
         'saved_styles': 'Saved Styles:',
         'delete_style': 'Delete',
-        'style_deleted': 'Style deleted!'
+        'style_deleted': 'Style deleted!',
+        'export_style': '📤 Export Style',
+        'import_style': '📥 Import Style',
+        'export_file_name': 'File name:',
+        'import_file': 'Select style file:',
+        'export_success': 'Style exported successfully!',
+        'import_success': 'Style imported successfully!',
+        'import_error': 'Error importing style file!'
     },
     'ru': {
         'header': '🎨 Конструктор стилей цитирования',
@@ -117,7 +124,14 @@ TRANSLATIONS = {
         'no_style_selected': 'Стиль не выбран!',
         'saved_styles': 'Сохраненные стили:',
         'delete_style': 'Удалить',
-        'style_deleted': 'Стиль удален!'
+        'style_deleted': 'Стиль удален!',
+        'export_style': '📤 Экспорт стиля',
+        'import_style': '📥 Импорт стиля',
+        'export_file_name': 'Имя файла:',
+        'import_file': 'Выберите файл стиля:',
+        'export_success': 'Стиль экспортирован успешно!',
+        'import_success': 'Стиль импортирован успешно!',
+        'import_error': 'Ошибка импорта файла стиля!'
     }
 }
 
@@ -132,7 +146,7 @@ if 'saved_styles' not in st.session_state:
 def get_text(key):
     return TRANSLATIONS[st.session_state.current_language].get(key, key)
 
-# Функции обработки
+# Функции обработки (остаются без изменений)
 def clean_text(text):
     return re.sub(r'<[^>]+>|&[^;]+;', '', text).strip()
 
@@ -509,6 +523,46 @@ def delete_style(style_name):
         return True
     return False
 
+def export_style(style_config, file_name):
+    """Export style to JSON file"""
+    try:
+        # Add metadata to the style config
+        export_data = {
+            'version': '1.0',
+            'export_date': str(pd.Timestamp.now()),
+            'style_config': style_config
+        }
+        
+        # Convert to JSON
+        json_data = json.dumps(export_data, indent=2, ensure_ascii=False)
+        
+        # Create file bytes
+        file_bytes = json_data.encode('utf-8')
+        
+        return file_bytes
+    except Exception as e:
+        st.error(f"Export error: {str(e)}")
+        return None
+
+def import_style(uploaded_file):
+    """Import style from JSON file"""
+    try:
+        # Read file content
+        content = uploaded_file.read().decode('utf-8')
+        
+        # Parse JSON
+        import_data = json.loads(content)
+        
+        # Validate structure
+        if 'style_config' not in import_data:
+            st.error(get_text('import_error'))
+            return None
+            
+        return import_data['style_config']
+    except Exception as e:
+        st.error(f"{get_text('import_error')}: {str(e)}")
+        return None
+
 # Компактный интерфейс Streamlit
 def main():
     st.set_page_config(layout="wide")
@@ -581,45 +635,102 @@ def main():
         # Управление стилями
         st.subheader(get_text('style_management'))
         
-        # Сохранение стиля
+        # Экспорт текущего стиля
+        st.write(get_text('export_style'))
+        export_file_name = st.text_input(get_text('export_file_name'), value="my_citation_style", placeholder="Введите имя файла")
+        
+        # Создаем конфигурацию текущего стиля для экспорта
+        current_style_config = {
+            'author_format': st.session_state.auth,
+            'author_separator': st.session_state.sep,
+            'et_al_limit': st.session_state.etal if st.session_state.etal > 0 else None,
+            'use_and_bool': st.session_state.use_and_checkbox,
+            'doi_format': st.session_state.doi,
+            'doi_hyperlink': st.session_state.doilink,
+            'page_format': st.session_state.page,
+            'final_punctuation': st.session_state.punct,
+            'numbering_style': st.session_state.num,
+            'elements': []
+        }
+        
+        # Добавляем элементы
+        used_elements = set()
+        for i in range(8):
+            element = st.session_state.get(f"el{i}", "")
+            if element and element not in used_elements:
+                element_config = {
+                    'italic': st.session_state.get(f"it{i}", False),
+                    'bold': st.session_state.get(f"bd{i}", False),
+                    'parentheses': st.session_state.get(f"pr{i}", False),
+                    'separator': st.session_state.get(f"sp{i}", ". ")
+                }
+                current_style_config['elements'].append((element, element_config))
+                used_elements.add(element)
+        
+        # Кнопка экспорта
+        export_data = export_style(current_style_config, export_file_name)
+        if export_data:
+            st.download_button(
+                label=get_text('export_style'),
+                data=export_data,
+                file_name=f"{export_file_name}.json",
+                mime="application/json",
+                use_container_width=True
+            )
+        
+        # Импорт стиля
+        st.write(get_text('import_style'))
+        imported_file = st.file_uploader(get_text('import_file'), type=['json'], label_visibility="collapsed")
+        
+        if imported_file is not None:
+            imported_style = import_style(imported_file)
+            if imported_style:
+                # Apply imported style configuration
+                st.session_state.num = imported_style.get('numbering_style', "No numbering")
+                st.session_state.auth = imported_style.get('author_format', "AA Smith")
+                st.session_state.sep = imported_style.get('author_separator', ", ")
+                st.session_state.etal = imported_style.get('et_al_limit', 0) or 0
+                st.session_state.use_and_checkbox = imported_style.get('use_and_bool', False)
+                st.session_state.doi = imported_style.get('doi_format', "10.10/xxx")
+                st.session_state.doilink = imported_style.get('doi_hyperlink', True)
+                st.session_state.page = imported_style.get('page_format', "122–128")
+                st.session_state.punct = imported_style.get('final_punctuation', "")
+                
+                # Clear previous elements
+                for i in range(8):
+                    st.session_state[f"el{i}"] = ""
+                    st.session_state[f"it{i}"] = False
+                    st.session_state[f"bd{i}"] = False
+                    st.session_state[f"pr{i}"] = False
+                    st.session_state[f"sp{i}"] = ". "
+                
+                # Apply imported elements
+                elements = imported_style.get('elements', [])
+                for i, (element, config) in enumerate(elements):
+                    if i < 8:
+                        st.session_state[f"el{i}"] = element
+                        st.session_state[f"it{i}"] = config.get('italic', False)
+                        st.session_state[f"bd{i}"] = config.get('bold', False)
+                        st.session_state[f"pr{i}"] = config.get('parentheses', False)
+                        st.session_state[f"sp{i}"] = config.get('separator', ". ")
+                
+                st.session_state.gost_style = imported_style.get('gost_style', False)
+                st.success(get_text('import_success'))
+                st.rerun()
+
+        # Сохранение стиля (временное, в сессии)
+        st.write("---")
         style_name = st.text_input(get_text('style_name'), placeholder="Введите название стиля")
         if st.button(get_text('save_style'), use_container_width=True):
             if style_name and style_name.strip():
-                style_config = {
-                    'author_format': st.session_state.auth,
-                    'author_separator': st.session_state.sep,
-                    'et_al_limit': st.session_state.etal if st.session_state.etal > 0 else None,
-                    'use_and_bool': st.session_state.use_and_checkbox,
-                    'doi_format': st.session_state.doi,
-                    'doi_hyperlink': st.session_state.doilink,
-                    'page_format': st.session_state.page,
-                    'final_punctuation': st.session_state.punct,
-                    'numbering_style': st.session_state.num,
-                    'elements': []
-                }
-                
-                # Сохраняем элементы
-                used_elements = set()
-                for i in range(8):
-                    element = st.session_state.get(f"el{i}", "")
-                    if element and element not in used_elements:
-                        element_config = {
-                            'italic': st.session_state.get(f"it{i}", False),
-                            'bold': st.session_state.get(f"bd{i}", False),
-                            'parentheses': st.session_state.get(f"pr{i}", False),
-                            'separator': st.session_state.get(f"sp{i}", ". ")
-                        }
-                        style_config['elements'].append((element, element_config))
-                        used_elements.add(element)
-                
-                if save_style(style_name.strip(), style_config):
+                if save_style(style_name.strip(), current_style_config):
                     st.success(get_text('save_success'))
                 else:
                     st.error("Ошибка сохранения стиля")
             else:
                 st.error("Введите название стиля")
         
-        # Загрузка стиля
+        # Загрузка стиля из временного хранилища
         if st.session_state.saved_styles:
             st.write(get_text('saved_styles'))
             for style_name in list(st.session_state.saved_styles.keys()):
@@ -657,7 +768,7 @@ def main():
                                     st.session_state[f"pr{i}"] = config.get('parentheses', False)
                                     st.session_state[f"sp{i}"] = config.get('separator', ". ")
                             
-                            st.session_state.gost_style = False
+                            st.session_state.gost_style = style_config.get('gost_style', False)
                             st.success(get_text('load_success'))
                             st.rerun()
                 with cols[2]:
