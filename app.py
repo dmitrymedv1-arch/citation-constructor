@@ -193,11 +193,11 @@ def extract_metadata(doi):
     except:
         return None
 
-def format_authors(authors, author_format, separator, et_al_limit, use_and):
+def format_authors(authors, author_format, separator, et_al_limit, use_and_bool):
     if not authors:
         return ""
     author_str = ""
-    limit = et_al_limit if et_al_limit and not use_and else len(authors)
+    limit = et_al_limit if et_al_limit and not use_and_bool else len(authors)
     for i, author in enumerate(authors[:limit]):
         given = author['given']
         family = author['family']
@@ -215,11 +215,11 @@ def format_authors(authors, author_format, separator, et_al_limit, use_and):
         elif author_format == "Smith, A.A.":
             author_str += f"{family}, {first_initial}.{second_initial}." if second_initial else f"{family}, {first_initial}."
         if i < len(authors[:limit]) - 1:
-            if i == len(authors[:limit]) - 2 and use_and:
+            if i == len(authors[:limit]) - 2 and use_and_bool:
                 author_str += " and " if st.session_state.current_language == 'en' else " и "
             else:
                 author_str += separator
-    if et_al_limit and len(authors) > et_al_limit and not use_and:
+    if et_al_limit and len(authors) > et_al_limit and not use_and_bool:
         author_str += " et al"
     return author_str.strip()
 
@@ -284,7 +284,7 @@ def format_reference(metadata, style_config, for_preview=False):
                 style_config['author_format'],
                 style_config['author_separator'],
                 style_config['et_al_limit'],
-                style_config['use_and']
+                style_config['use_and_bool']
             )
         elif element == "Title":
             value = metadata['title']
@@ -550,7 +550,7 @@ def main():
             st.session_state.auth = "Smith, A.A."
             st.session_state.sep = ", "
             st.session_state.etal = 0
-            st.session_state.and = False
+            st.session_state.use_and_checkbox = False
             st.session_state.doi = "https://dx.doi.org/10.10/xxx"
             st.session_state.doilink = True
             st.session_state.page = "122–128"
@@ -572,7 +572,7 @@ def main():
         author_format = st.selectbox(get_text('author_format'), ["AA Smith", "A.A. Smith", "Smith AA", "Smith A.A", "Smith, A.A."], key="auth")
         author_separator = st.selectbox(get_text('author_separator'), [", ", "; "], key="sep")
         et_al_limit = st.number_input(get_text('et_al_limit'), min_value=0, step=1, key="etal")
-        use_and = st.checkbox(get_text('use_and'), key="and")
+        use_and_checkbox = st.checkbox(get_text('use_and'), key="use_and_checkbox")
         doi_format = st.selectbox(get_text('doi_format'), ["10.10/xxx", "doi:10.10/xxx", "DOI:10.10/xxx", "https://dx.doi.org/10.10/xxx"], key="doi")
         doi_hyperlink = st.checkbox(get_text('doi_hyperlink'), key="doilink")
         page_format = st.selectbox(get_text('page_format'), ["122 - 128", "122-128", "122 – 128", "122–128", "122–8"], key="page")
@@ -589,7 +589,7 @@ def main():
                     'author_format': st.session_state.auth,
                     'author_separator': st.session_state.sep,
                     'et_al_limit': st.session_state.etal if st.session_state.etal > 0 else None,
-                    'use_and': st.session_state.and,
+                    'use_and_bool': st.session_state.use_and_checkbox,
                     'doi_format': st.session_state.doi,
                     'doi_hyperlink': st.session_state.doilink,
                     'page_format': st.session_state.page,
@@ -633,7 +633,7 @@ def main():
                             st.session_state.auth = style_config.get('author_format', "AA Smith")
                             st.session_state.sep = style_config.get('author_separator', ", ")
                             st.session_state.etal = style_config.get('et_al_limit', 0) or 0
-                            st.session_state.and = style_config.get('use_and', False)
+                            st.session_state.use_and_checkbox = style_config.get('use_and_bool', False)
                             st.session_state.doi = style_config.get('doi_format', "10.10/xxx")
                             st.session_state.doilink = style_config.get('doi_hyperlink', True)
                             st.session_state.page = style_config.get('page_format', "122–128")
@@ -695,7 +695,7 @@ def main():
             'author_format': st.session_state.auth,
             'author_separator': st.session_state.sep,
             'et_al_limit': st.session_state.etal if st.session_state.etal > 0 else None,
-            'use_and': st.session_state.and,
+            'use_and_bool': st.session_state.use_and_checkbox,
             'doi_format': st.session_state.doi,
             'doi_hyperlink': st.session_state.doilink,
             'page_format': st.session_state.page,
