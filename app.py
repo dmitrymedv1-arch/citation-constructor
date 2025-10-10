@@ -807,14 +807,29 @@ def main():
                     if is_error:
                         output_text_value += f"{prefix}{elements}\n"
                     else:
-                        ref_str = ""
-                        for j, (value, _, _, separator, _, _) in enumerate(elements):
-                            ref_str += value
-                            if separator and j < len(elements) - 1:
-                                ref_str += separator
-                            elif j == len(elements) - 1 and style_config['final_punctuation']:
+                        # Handle both regular and GOST style formats
+                        if isinstance(elements, str):
+                            # This is a string (shouldn't happen in normal flow)
+                            output_text_value += f"{prefix}{elements}\n"
+                        else:
+                            # This is a list of elements
+                            ref_str = ""
+                            for j, element_data in enumerate(elements):
+                                if len(element_data) == 6:
+                                    # Regular format: (value, italic, bold, separator, is_doi_hyperlink, doi_value)
+                                    value, _, _, separator, _, _ = element_data
+                                    ref_str += value
+                                    if separator and j < len(elements) - 1:
+                                        ref_str += separator
+                                else:
+                                    # Handle unexpected format
+                                    ref_str += str(element_data)
+                            
+                            # Add final punctuation if needed
+                            if style_config['final_punctuation'] and not is_error:
                                 ref_str = ref_str.rstrip(',.') + "."
-                        output_text_value += f"{prefix}{ref_str}\n"
+                            
+                            output_text_value += f"{prefix}{ref_str}\n"
                 st.session_state['output_text'] = output_text_value
             else:
                 st.session_state['output_text'] = ""
