@@ -120,6 +120,10 @@ TRANSLATIONS = {
 if 'current_language' not in st.session_state:
     st.session_state.current_language = 'ru'
 
+# Хранение импортированного стиля
+if 'imported_style' not in st.session_state:
+    st.session_state.imported_style = None
+
 def get_text(key):
     return TRANSLATIONS[st.session_state.current_language].get(key, key)
 
@@ -522,6 +526,11 @@ def import_style(uploaded_file):
         st.error(f"{get_text('import_error')}: {str(e)}")
         return None
 
+def apply_imported_style(imported_style):
+    """Apply imported style configuration"""
+    st.session_state.imported_style = imported_style
+    st.rerun()
+
 # Компактный интерфейс Streamlit
 def main():
     st.set_page_config(layout="wide")
@@ -554,6 +563,51 @@ def main():
 
     st.title(get_text('header'))
 
+    # Применяем импортированный стиль если он есть
+    if st.session_state.imported_style is not None:
+        imported_style = st.session_state.imported_style
+        st.session_state.imported_style = None  # Сбрасываем после применения
+        
+        # Используем callback для безопасного применения стиля
+        st.success(get_text('import_success'))
+        
+        # Создаем временные переменные для применения стиля
+        temp_style = {
+            'num': imported_style.get('numbering_style', "No numbering"),
+            'auth': imported_style.get('author_format', "AA Smith"),
+            'sep': imported_style.get('author_separator', ", "),
+            'etal': imported_style.get('et_al_limit', 0) or 0,
+            'use_and_checkbox': imported_style.get('use_and_bool', False),
+            'doi': imported_style.get('doi_format', "10.10/xxx"),
+            'doilink': imported_style.get('doi_hyperlink', True),
+            'page': imported_style.get('page_format', "122–128"),
+            'punct': imported_style.get('final_punctuation', ""),
+            'gost_style': imported_style.get('gost_style', False),
+            'elements': imported_style.get('elements', [])
+        }
+        
+        # Обновляем значения через st.session_state перед созданием виджетов
+        for key, value in temp_style.items():
+            if key not in ['elements', 'gost_style']:
+                st.session_state[key] = value
+        
+        # Для элементов нужно обработать отдельно
+        elements = temp_style['elements']
+        for i in range(8):
+            if i < len(elements):
+                element, config = elements[i]
+                st.session_state[f"el{i}"] = element
+                st.session_state[f"it{i}"] = config.get('italic', False)
+                st.session_state[f"bd{i}"] = config.get('bold', False)
+                st.session_state[f"pr{i}"] = config.get('parentheses', False)
+                st.session_state[f"sp{i}"] = config.get('separator', ". ")
+            else:
+                st.session_state[f"el{i}"] = ""
+                st.session_state[f"it{i}"] = False
+                st.session_state[f"bd{i}"] = False
+                st.session_state[f"pr{i}"] = False
+                st.session_state[f"sp{i}"] = ". "
+
     # Трёхколоночный макет
     col1, col2, col3 = st.columns([1, 1, 1])
 
@@ -585,15 +639,38 @@ def main():
             st.session_state.gost_style = True
             st.rerun()
         
-        numbering_style = st.selectbox(get_text('numbering_style'), ["No numbering", "1", "1.", "1)", "(1)", "[1]"], key="num")
-        author_format = st.selectbox(get_text('author_format'), ["AA Smith", "A.A. Smith", "Smith AA", "Smith A.A", "Smith, A.A."], key="auth")
-        author_separator = st.selectbox(get_text('author_separator'), [", ", "; "], key="sep")
-        et_al_limit = st.number_input(get_text('et_al_limit'), min_value=0, step=1, key="etal")
-        use_and_checkbox = st.checkbox(get_text('use_and'), key="use_and_checkbox")
-        doi_format = st.selectbox(get_text('doi_format'), ["10.10/xxx", "doi:10.10/xxx", "DOI:10.10/xxx", "https://dx.doi.org/10.10/xxx"], key="doi")
-        doi_hyperlink = st.checkbox(get_text('doi_hyperlink'), key="doilink")
-        page_format = st.selectbox(get_text('page_format'), ["122 - 128", "122-128", "122 – 128", "122–128", "122–8"], key="page")
-        final_punctuation = st.selectbox(get_text('final_punctuation'), ["", "."], key="punct")
+        # Инициализация значений по умолчанию
+        default_values = {
+            'num': "No numbering",
+            'auth': "AA Smith", 
+            'sep': ", ",
+            'etal': 0,
+            'use_and_checkbox': False,
+            'doi': "10.10/xxx",
+            'doilink': True,
+            'page': "122–128",
+            'punct': ""
+        }
+        
+        for key, default in default_values.items():
+            if key not in st.session_state:
+                st.session_state[key] = default
+        
+        numbering_style = st.selectbox(get_text('numbering_style'), ["No numbering", "1", "1.", "1)", "(1)", "[1]"], 
+                                      key="num", index=["No numbering", "1", "1.", "1)", "(1)", "[1]"].index(st.session_state.num))
+        author_format = st.selectbox(get_text('author_format'), ["AA Smith", "A.A. Smith", "Smith AA", "Smith A.A", "Smith, A.A."], 
+                                    key="auth", index=["AA Smith", "A.A. Smith", "Smith AA", "Smith A.A", "Smith, A.A."].index(st.session_state.auth))
+        author_separator = st.selectbox(get_text('author_separator'), [", ", "; "], 
+                                       key="sep", index=[", ", "; "].index(st.session_state.sep))
+        et_al_limit = st.number_input(get_text('et_al_limit'), min_value=0, step=1, key="etal", value=st.session_state.etal)
+        use_and_checkbox = st.checkbox(get_text('use_and'), key="use_and_checkbox", value=st.session_state.use_and_checkbox)
+        doi_format = st.selectbox(get_text('doi_format'), ["10.10/xxx", "doi:10.10/xxx", "DOI:10.10/xxx", "https://dx.doi.org/10.10/xxx"], 
+                                 key="doi", index=["10.10/xxx", "doi:10.10/xxx", "DOI:10.10/xxx", "https://dx.doi.org/10.10/xxx"].index(st.session_state.doi))
+        doi_hyperlink = st.checkbox(get_text('doi_hyperlink'), key="doilink", value=st.session_state.doilink)
+        page_format = st.selectbox(get_text('page_format'), ["122 - 128", "122-128", "122 – 128", "122–128", "122–8"], 
+                                  key="page", index=["122 - 128", "122-128", "122 – 128", "122–128", "122–8"].index(st.session_state.page))
+        final_punctuation = st.selectbox(get_text('final_punctuation'), ["", "."], 
+                                        key="punct", index=["", "."].index(st.session_state.punct))
 
     with col2:
         st.subheader(get_text('element_config'))
@@ -601,18 +678,32 @@ def main():
         element_configs = []
         used_elements = set()
         st.markdown(f"<small>{get_text('element')} | {get_text('italic')} | {get_text('bold')} | {get_text('parentheses')} | {get_text('separator')}</small>", unsafe_allow_html=True)
-        for i in range(8):  # Все 8 элементов
+        
+        # Инициализация элементов
+        for i in range(8):
+            for prop in ['el', 'it', 'bd', 'pr', 'sp']:
+                key = f"{prop}{i}"
+                if key not in st.session_state:
+                    if prop == 'sp':
+                        st.session_state[key] = ". "
+                    elif prop == 'el':
+                        st.session_state[key] = ""
+                    else:
+                        st.session_state[key] = False
+        
+        for i in range(8):
             cols = st.columns([2, 1, 1, 1, 2])
             with cols[0]:
-                element = st.selectbox("", available_elements, key=f"el{i}", label_visibility="collapsed")
+                element = st.selectbox("", available_elements, key=f"el{i}", label_visibility="collapsed",
+                                     index=available_elements.index(st.session_state[f"el{i}"]) if st.session_state[f"el{i}"] in available_elements else 0)
             with cols[1]:
-                italic = st.checkbox("", key=f"it{i}", help=get_text('italic'))
+                italic = st.checkbox("", key=f"it{i}", help=get_text('italic'), value=st.session_state[f"it{i}"])
             with cols[2]:
-                bold = st.checkbox("", key=f"bd{i}", help=get_text('bold'))
+                bold = st.checkbox("", key=f"bd{i}", help=get_text('bold'), value=st.session_state[f"bd{i}"])
             with cols[3]:
-                parentheses = st.checkbox("", key=f"pr{i}", help=get_text('parentheses'))
+                parentheses = st.checkbox("", key=f"pr{i}", help=get_text('parentheses'), value=st.session_state[f"pr{i}"])
             with cols[4]:
-                separator = st.text_input("", value=". ", key=f"sp{i}", label_visibility="collapsed")
+                separator = st.text_input("", value=st.session_state[f"sp{i}"], key=f"sp{i}", label_visibility="collapsed")
             if element and element not in used_elements:
                 element_configs.append((element, {'italic': italic, 'bold': bold, 'parentheses': parentheses, 'separator': separator}))
                 used_elements.add(element)
@@ -736,7 +827,6 @@ def main():
                     if is_error:
                         output_text_value += f"{prefix}{elements}\n"
                     else:
-                        # Handle both regular and GOST style formats
                         if isinstance(elements, str):
                             output_text_value += f"{prefix}{elements}\n"
                         else:
@@ -790,22 +880,8 @@ def main():
             'page_format': st.session_state.page,
             'final_punctuation': st.session_state.punct,
             'numbering_style': st.session_state.num,
-            'elements': []
+            'elements': element_configs
         }
-        
-        # Добавляем элементы
-        used_elements = set()
-        for i in range(8):
-            element = st.session_state.get(f"el{i}", "")
-            if element and element not in used_elements:
-                element_config = {
-                    'italic': st.session_state.get(f"it{i}", False),
-                    'bold': st.session_state.get(f"bd{i}", False),
-                    'parentheses': st.session_state.get(f"pr{i}", False),
-                    'separator': st.session_state.get(f"sp{i}", ". ")
-                }
-                current_style_config['elements'].append((element, element_config))
-                used_elements.add(element)
         
         # Кнопка экспорта
         export_data = export_style(current_style_config, export_file_name)
@@ -824,38 +900,8 @@ def main():
         if imported_file is not None:
             imported_style = import_style(imported_file)
             if imported_style:
-                # Apply imported style configuration
-                st.session_state.num = imported_style.get('numbering_style', "No numbering")
-                st.session_state.auth = imported_style.get('author_format', "AA Smith")
-                st.session_state.sep = imported_style.get('author_separator', ", ")
-                st.session_state.etal = imported_style.get('et_al_limit', 0) or 0
-                st.session_state.use_and_checkbox = imported_style.get('use_and_bool', False)
-                st.session_state.doi = imported_style.get('doi_format', "10.10/xxx")
-                st.session_state.doilink = imported_style.get('doi_hyperlink', True)
-                st.session_state.page = imported_style.get('page_format', "122–128")
-                st.session_state.punct = imported_style.get('final_punctuation', "")
-                
-                # Clear previous elements
-                for i in range(8):
-                    st.session_state[f"el{i}"] = ""
-                    st.session_state[f"it{i}"] = False
-                    st.session_state[f"bd{i}"] = False
-                    st.session_state[f"pr{i}"] = False
-                    st.session_state[f"sp{i}"] = ". "
-                
-                # Apply imported elements
-                elements = imported_style.get('elements', [])
-                for i, (element, config) in enumerate(elements):
-                    if i < 8:
-                        st.session_state[f"el{i}"] = element
-                        st.session_state[f"it{i}"] = config.get('italic', False)
-                        st.session_state[f"bd{i}"] = config.get('bold', False)
-                        st.session_state[f"pr{i}"] = config.get('parentheses', False)
-                        st.session_state[f"sp{i}"] = config.get('separator', ". ")
-                
-                st.session_state.gost_style = imported_style.get('gost_style', False)
-                st.success(get_text('import_success'))
-                st.rerun()
+                # Сохраняем импортированный стиль и перезагружаем страницу
+                apply_imported_style(imported_style)
 
     # Обновление текстового поля результатов
     if 'output_text' in st.session_state:
