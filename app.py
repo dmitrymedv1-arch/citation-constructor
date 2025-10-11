@@ -130,6 +130,14 @@ if 'style_applied' not in st.session_state:
 if 'apply_imported_style' not in st.session_state:
     st.session_state.apply_imported_style = False
 
+# Для хранения результатов обработки
+if 'output_text_value' not in st.session_state:
+    st.session_state.output_text_value = ""
+if 'show_results' not in st.session_state:
+    st.session_state.show_results = False
+if 'download_data' not in st.session_state:
+    st.session_state.download_data = {}
+
 def get_text(key):
     return TRANSLATIONS[st.session_state.current_language].get(key, key)
 
@@ -779,52 +787,59 @@ def main():
         # Вывод данных
         st.subheader(get_text('data_output'))
         output_method = st.radio(get_text('output_method'), ['DOCX', 'Text' if st.session_state.current_language == 'en' else 'Текст'], horizontal=True, key="output_method")
-        output_text = st.text_area(get_text('results'), placeholder=get_text('results'), height=40, disabled=True, label_visibility="collapsed", key="output_text")
+        
+        # Текстовое поле для результатов (всегда отображается, но может быть пустым)
+        output_text_value = st.session_state.output_text_value if st.session_state.show_results else ""
+        st.text_area(get_text('results'), value=output_text_value, height=40, disabled=True, label_visibility="collapsed", key="output_text")
 
         # Кнопка обработки
         if st.button(get_text('process'), use_container_width=True, key="process_button"):
             if not style_config['elements'] and not style_config.get('gost_style', False):
                 st.error(get_text('error_select_element'))
                 return
+                
             if input_method == 'DOCX':
                 if not uploaded_file:
                     st.error(get_text('upload_file'))
                     return
-                formatted_refs, txt_bytes, output_doc_buffer = process_docx(uploaded_file, style_config)
+                with st.spinner(get_text('processing')):
+                    formatted_refs, txt_bytes, output_doc_buffer = process_docx(uploaded_file, style_config)
             else:
                 if not references_input.strip():
                     st.error(get_text('enter_references_error'))
                     return
                 references = [ref.strip() for ref in references_input.split('\n') if ref.strip()]
                 st.write(f"**{get_text('found_references_text').format(len(references))}**")
-                formatted_refs, txt_bytes, _, _ = process_references(references, style_config)
-                output_doc = Document()
-                output_doc.add_heading('References in Custom Style' if st.session_state.current_language == 'en' else 'Ссылки в пользовательском стиле', level=1)
-                for i, (elements, is_error, metadata) in enumerate(formatted_refs, 1):
-                    numbering = style_config['numbering_style']
-                    prefix = "" if numbering == "No numbering" else f"{i}{numbering[-1] if numbering != '1' else ''} "
-                    para = output_doc.add_paragraph(prefix)
-                    if is_error:
-                        run = para.add_run(str(elements))
-                        apply_yellow_background(run)
-                    else:
-                        for j, (value, italic, bold, separator, is_doi_hyperlink, doi_value) in enumerate(elements):
-                            if is_doi_hyperlink and doi_value:
-                                add_hyperlink(para, value, f"https://doi.org/{doi_value}")
-                            else:
-                                run = para.add_run(value)
-                                if italic:
-                                    run.font.italic = True
-                                if bold:
-                                    run.font.bold = True
-                            if separator and j < len(elements) - 1:
-                                para.add_run(separator)
-                        if style_config['final_punctuation'] and not is_error:
-                            para.add_run(".")
-                output_doc_buffer = io.BytesIO()
-                output_doc.save(output_doc_buffer)
-                output_doc_buffer.seek(0)
+                with st.spinner(get_text('processing')):
+                    formatted_refs, txt_bytes, _, _ = process_references(references, style_config)
+                    output_doc = Document()
+                    output_doc.add_heading('References in Custom Style' if st.session_state.current_language == 'en' else 'Ссылки в пользовательском стиле', level=1)
+                    for i, (elements, is_error, metadata) in enumerate(formatted_refs, 1):
+                        numbering = style_config['numbering_style']
+                        prefix = "" if numbering == "No numbering" else f"{i}{numbering[-1] if numbering != '1' else ''} "
+                        para = output_doc.add_paragraph(prefix)
+                        if is_error:
+                            run = para.add_run(str(elements))
+                            apply_yellow_background(run)
+                        else:
+                            for j, (value, italic, bold, separator, is_doi_hyperlink, doi_value) in enumerate(elements):
+                                if is_doi_hyperlink and doi_value:
+                                    add_hyperlink(para, value, f"https://doi.org/{doi_value}")
+                                else:
+                                    run = para.add_run(value)
+                                    if italic:
+                                        run.font.italic = True
+                                    if bold:
+                                        run.font.bold = True
+                                if separator and j < len(elements) - 1:
+                                    para.add_run(separator)
+                            if style_config['final_punctuation'] and not is_error:
+                                para.add_run(".")
+                    output_doc_buffer = io.BytesIO()
+                    output_doc.save(output_doc_buffer)
+                    output_doc_buffer.seek(0)
 
+            # Подготовка данных для вывода
             if output_method == 'Text' if st.session_state.current_language == 'en' else 'Текст':
                 output_text_value = ""
                 for i, (elements, is_error, metadata) in enumerate(formatted_refs, 1):
@@ -850,22 +865,35 @@ def main():
                                 ref_str = ref_str.rstrip(',.') + "."
                             
                             output_text_value += f"{prefix}{ref_str}\n"
-                st.session_state['output_text'] = output_text_value
+                
+                # Сохраняем данные для отображения
+                st.session_state.output_text_value = output_text_value
+                st.session_state.show_results = True
             else:
-                st.session_state['output_text'] = ""
+                st.session_state.output_text_value = ""
+                st.session_state.show_results = False
 
-            # Кнопки скачивания
+            # Сохраняем данные для скачивания
+            st.session_state.download_data = {
+                'txt_bytes': txt_bytes,
+                'output_doc_buffer': output_doc_buffer if output_method == 'DOCX' else None
+            }
+            
+            st.rerun()
+
+        # Кнопки скачивания (показываются только после обработки)
+        if st.session_state.download_data:
             st.download_button(
                 label=get_text('doi_txt'),
-                data=txt_bytes,
+                data=st.session_state.download_data['txt_bytes'],
                 file_name='doi_list.txt',
                 mime='text/plain',
                 key="doi_download"
             )
-            if output_method == 'DOCX':
+            if output_method == 'DOCX' and st.session_state.download_data.get('output_doc_buffer'):
                 st.download_button(
                     label=get_text('references_docx'),
-                    data=output_doc_buffer,
+                    data=st.session_state.download_data['output_doc_buffer'],
                     file_name='references_custom.docx',
                     mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                     key="docx_download"
@@ -915,10 +943,6 @@ def main():
                 st.session_state.apply_imported_style = True
                 st.success(get_text('import_success'))
                 st.rerun()
-
-    # Обновление текстового поля результатов
-    if 'output_text' in st.session_state:
-        st.text_area(get_text('results'), value=st.session_state['output_text'], height=40, disabled=True, label_visibility="collapsed", key="results_output")
 
 if __name__ == "__main__":
     main()
