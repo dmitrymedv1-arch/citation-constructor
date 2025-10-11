@@ -363,16 +363,13 @@ def format_gost_reference(metadata, style_config, for_preview=False):
     
     # Format pages with en-dash instead of hyphen
     pages = metadata['pages']
-    if pages and '-' in pages:
-        start_page, end_page = pages.split('-')
-        pages = f"{start_page.strip()}–{end_page.strip()}"  # Using en-dash
-    elif pages:
-        pages = pages.strip()
+    article_number = metadata['article_number']
     
-    # Determine language and set volume/page labels
+    # Determine language and set volume/page/article labels
     is_russian = st.session_state.current_language == 'ru'
     volume_label = "Т." if is_russian else "Vol."
     page_label = "С." if is_russian else "P."
+    article_label = "Арт." if is_russian else "Art."
     issue_label = "№" if is_russian else "No."
     
     # Format DOI
@@ -380,9 +377,25 @@ def format_gost_reference(metadata, style_config, for_preview=False):
     
     # Build GOST reference with issue number if available
     if metadata['issue']:
-        gost_ref = f"{first_author} {metadata['title']} / {all_authors} // {metadata['journal']}. – {metadata['year']}. – {volume_label} {metadata['volume']}. – {issue_label} {metadata['issue']}. – {page_label} {pages}. – {doi_url}"
+        gost_ref = f"{first_author} {metadata['title']} / {all_authors} // {metadata['journal']}. – {metadata['year']}. – {volume_label} {metadata['volume']}. – {issue_label} {metadata['issue']}."
     else:
-        gost_ref = f"{first_author} {metadata['title']} / {all_authors} // {metadata['journal']}. – {metadata['year']}. – {volume_label} {metadata['volume']}. – {page_label} {pages}. – {doi_url}"
+        gost_ref = f"{first_author} {metadata['title']} / {all_authors} // {metadata['journal']}. – {metadata['year']}. – {volume_label} {metadata['volume']}."
+    
+    # Add pages or article number
+    if pages:
+        if '-' in pages:
+            start_page, end_page = pages.split('-')
+            pages = f"{start_page.strip()}–{end_page.strip()}"  # Using en-dash
+        else:
+            pages = pages.strip()
+        gost_ref += f" – {page_label} {pages}."
+    elif article_number:
+        gost_ref += f" – {article_label} {article_number}."
+    else:
+        gost_ref += " – [Без пагинации]." if is_russian else " – [No pagination]."
+    
+    # Add DOI
+    gost_ref += f" – {doi_url}"
     
     if for_preview:
         return gost_ref, False
@@ -391,11 +404,7 @@ def format_gost_reference(metadata, style_config, for_preview=False):
         elements = []
         
         # Add all text before DOI as regular text
-        if metadata['issue']:
-            text_before_doi = f"{first_author} {metadata['title']} / {all_authors} // {metadata['journal']}. – {metadata['year']}. – {volume_label} {metadata['volume']}. – {issue_label} {metadata['issue']}. – {page_label} {pages}. – "
-        else:
-            text_before_doi = f"{first_author} {metadata['title']} / {all_authors} // {metadata['journal']}. – {metadata['year']}. – {volume_label} {metadata['volume']}. – {page_label} {pages}. – "
-        
+        text_before_doi = gost_ref.replace(doi_url, "")
         elements.append((text_before_doi, False, False, "", False, None))
         
         # Add DOI as hyperlink
@@ -555,48 +564,13 @@ def main():
     language = st.selectbox(get_text('language'), [('Русский', 'ru'), ('English', 'en')], 
                             format_func=lambda x: x[0], 
                             index=0 if st.session_state.current_language == 'ru' else 1,
-                            label_visibility="visible")
+                            key="language_selector")
     st.session_state.current_language = language[1]
 
     st.title(get_text('header'))
 
-    # Обработка импортированного стиля
-    if st.session_state.imported_style is not None and not st.session_state.style_applied:
-        imported_style = st.session_state.imported_style
-        
-        # Применяем стиль только один раз
-        st.session_state.style_applied = True
-        
-        # Обновляем значения в session_state
-        st.session_state.num = imported_style.get('numbering_style', "No numbering")
-        st.session_state.auth = imported_style.get('author_format', "AA Smith")
-        st.session_state.sep = imported_style.get('author_separator', ", ")
-        st.session_state.etal = imported_style.get('et_al_limit', 0) or 0
-        st.session_state.use_and_checkbox = imported_style.get('use_and_bool', False)
-        st.session_state.doi = imported_style.get('doi_format', "10.10/xxx")
-        st.session_state.doilink = imported_style.get('doi_hyperlink', True)
-        st.session_state.page = imported_style.get('page_format', "122–128")
-        st.session_state.punct = imported_style.get('final_punctuation', "")
-        st.session_state.gost_style = imported_style.get('gost_style', False)
-        
-        # Применяем элементы
-        elements = imported_style.get('elements', [])
-        for i in range(8):
-            if i < len(elements):
-                element, config = elements[i]
-                st.session_state[f"el{i}"] = element
-                st.session_state[f"it{i}"] = config.get('italic', False)
-                st.session_state[f"bd{i}"] = config.get('bold', False)
-                st.session_state[f"pr{i}"] = config.get('parentheses', False)
-                st.session_state[f"sp{i}"] = config.get('separator', ". ")
-            else:
-                st.session_state[f"el{i}"] = ""
-                st.session_state[f"it{i}"] = False
-                st.session_state[f"bd{i}"] = False
-                st.session_state[f"pr{i}"] = False
-                st.session_state[f"sp{i}"] = ". "
-        
-        st.success(get_text('import_success'))
+    # Обработка импортированного стиля - переместим эту логику в отдельное место
+    # чтобы избежать постоянной перезагрузки
 
     # Трёхколоночный макет
     col1, col2, col3 = st.columns([1, 1, 1])
@@ -628,7 +602,6 @@ def main():
             # Set GOST style flag
             st.session_state.gost_style = True
             st.session_state.style_applied = True
-            st.rerun()
         
         # Инициализация значений по умолчанию
         default_values = {
@@ -726,7 +699,7 @@ def main():
                 'year': 2020,
                 'volume': '15',
                 'issue': '3',
-                'pages': '6498-6503',
+                'pages': '',
                 'article_number': 'e12345',
                 'doi': '10.1000/xyz123'
             }
@@ -872,7 +845,8 @@ def main():
             'page_format': st.session_state.page,
             'final_punctuation': st.session_state.punct,
             'numbering_style': st.session_state.num,
-            'elements': element_configs
+            'elements': element_configs,
+            'gost_style': st.session_state.get('gost_style', False)
         }
         
         # Кнопка экспорта
@@ -887,7 +861,7 @@ def main():
             )
         
         # Импорт стиля
-        imported_file = st.file_uploader(get_text('import_file'), type=['json'], label_visibility="collapsed")
+        imported_file = st.file_uploader(get_text('import_file'), type=['json'], label_visibility="collapsed", key="style_importer")
         
         if imported_file is not None:
             imported_style = import_style(imported_file)
@@ -895,6 +869,38 @@ def main():
                 # Сохраняем импортированный стиль и сбрасываем флаг применения
                 st.session_state.imported_style = imported_style
                 st.session_state.style_applied = False
+                st.success(get_text('import_success'))
+                
+                # Применяем импортированный стиль
+                st.session_state.num = imported_style.get('numbering_style', "No numbering")
+                st.session_state.auth = imported_style.get('author_format', "AA Smith")
+                st.session_state.sep = imported_style.get('author_separator', ", ")
+                st.session_state.etal = imported_style.get('et_al_limit', 0) or 0
+                st.session_state.use_and_checkbox = imported_style.get('use_and_bool', False)
+                st.session_state.doi = imported_style.get('doi_format', "10.10/xxx")
+                st.session_state.doilink = imported_style.get('doi_hyperlink', True)
+                st.session_state.page = imported_style.get('page_format', "122–128")
+                st.session_state.punct = imported_style.get('final_punctuation', "")
+                st.session_state.gost_style = imported_style.get('gost_style', False)
+                
+                # Применяем элементы
+                elements = imported_style.get('elements', [])
+                for i in range(8):
+                    if i < len(elements):
+                        element, config = elements[i]
+                        st.session_state[f"el{i}"] = element
+                        st.session_state[f"it{i}"] = config.get('italic', False)
+                        st.session_state[f"bd{i}"] = config.get('bold', False)
+                        st.session_state[f"pr{i}"] = config.get('parentheses', False)
+                        st.session_state[f"sp{i}"] = config.get('separator', ". ")
+                    else:
+                        st.session_state[f"el{i}"] = ""
+                        st.session_state[f"it{i}"] = False
+                        st.session_state[f"bd{i}"] = False
+                        st.session_state[f"pr{i}"] = False
+                        st.session_state[f"sp{i}"] = ". "
+                
+                st.session_state.style_applied = True
                 st.rerun()
 
     # Обновление текстового поля результатов
