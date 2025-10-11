@@ -126,6 +126,10 @@ if 'imported_style' not in st.session_state:
 if 'style_applied' not in st.session_state:
     st.session_state.style_applied = False
 
+# Флаг для применения импортированного стиля после рендера
+if 'apply_imported_style' not in st.session_state:
+    st.session_state.apply_imported_style = False
+
 def get_text(key):
     return TRANSLATIONS[st.session_state.current_language].get(key, key)
 
@@ -537,6 +541,39 @@ def import_style(uploaded_file):
         st.error(f"{get_text('import_error')}: {str(e)}")
         return None
 
+def apply_imported_style(imported_style):
+    """Apply imported style configuration"""
+    # Используем callback для безопасного обновления session_state
+    st.session_state.num = imported_style.get('numbering_style', "No numbering")
+    st.session_state.auth = imported_style.get('author_format', "AA Smith")
+    st.session_state.sep = imported_style.get('author_separator', ", ")
+    st.session_state.etal = imported_style.get('et_al_limit', 0) or 0
+    st.session_state.use_and_checkbox = imported_style.get('use_and_bool', False)
+    st.session_state.doi = imported_style.get('doi_format', "10.10/xxx")
+    st.session_state.doilink = imported_style.get('doi_hyperlink', True)
+    st.session_state.page = imported_style.get('page_format', "122–128")
+    st.session_state.punct = imported_style.get('final_punctuation', "")
+    st.session_state.gost_style = imported_style.get('gost_style', False)
+    
+    # Применяем элементы
+    elements = imported_style.get('elements', [])
+    for i in range(8):
+        if i < len(elements):
+            element, config = elements[i]
+            st.session_state[f"el{i}"] = element
+            st.session_state[f"it{i}"] = config.get('italic', False)
+            st.session_state[f"bd{i}"] = config.get('bold', False)
+            st.session_state[f"pr{i}"] = config.get('parentheses', False)
+            st.session_state[f"sp{i}"] = config.get('separator', ". ")
+        else:
+            st.session_state[f"el{i}"] = ""
+            st.session_state[f"it{i}"] = False
+            st.session_state[f"bd{i}"] = False
+            st.session_state[f"pr{i}"] = False
+            st.session_state[f"sp{i}"] = ". "
+    
+    st.session_state.style_applied = True
+
 # Компактный интерфейс Streamlit
 def main():
     st.set_page_config(layout="wide")
@@ -560,6 +597,12 @@ def main():
         </style>
     """, unsafe_allow_html=True)
 
+    # Применяем импортированный стиль если нужно
+    if st.session_state.apply_imported_style and st.session_state.imported_style:
+        apply_imported_style(st.session_state.imported_style)
+        st.session_state.apply_imported_style = False
+        st.rerun()
+
     # Переключение языка
     language = st.selectbox(get_text('language'), [('Русский', 'ru'), ('English', 'en')], 
                             format_func=lambda x: x[0], 
@@ -569,9 +612,6 @@ def main():
 
     st.title(get_text('header'))
 
-    # Обработка импортированного стиля - переместим эту логику в отдельное место
-    # чтобы избежать постоянной перезагрузки
-
     # Трёхколоночный макет
     col1, col2, col3 = st.columns([1, 1, 1])
 
@@ -579,7 +619,7 @@ def main():
         st.subheader(get_text('general_settings'))
         
         # Кнопка применения ГОСТ стиля
-        if st.button(get_text('gost_style'), use_container_width=True):
+        if st.button(get_text('gost_style'), use_container_width=True, key="gost_button"):
             # Set GOST style configuration
             st.session_state.num = "1."
             st.session_state.auth = "Smith, A.A."
@@ -602,6 +642,7 @@ def main():
             # Set GOST style flag
             st.session_state.gost_style = True
             st.session_state.style_applied = True
+            st.rerun()
         
         # Инициализация значений по умолчанию
         default_values = {
@@ -729,19 +770,19 @@ def main():
 
         # Ввод данных
         st.subheader(get_text('data_input'))
-        input_method = st.radio(get_text('input_method'), ['DOCX', 'Text' if st.session_state.current_language == 'en' else 'Текст'], horizontal=True)
+        input_method = st.radio(get_text('input_method'), ['DOCX', 'Text' if st.session_state.current_language == 'en' else 'Текст'], horizontal=True, key="input_method")
         if input_method == 'DOCX':
-            uploaded_file = st.file_uploader(get_text('select_docx'), type=['docx'], label_visibility="collapsed")
+            uploaded_file = st.file_uploader(get_text('select_docx'), type=['docx'], label_visibility="collapsed", key="docx_uploader")
         else:
-            references_input = st.text_area(get_text('references'), placeholder=get_text('enter_references'), height=40, label_visibility="collapsed")
+            references_input = st.text_area(get_text('references'), placeholder=get_text('enter_references'), height=40, label_visibility="collapsed", key="references_input")
 
         # Вывод данных
         st.subheader(get_text('data_output'))
-        output_method = st.radio(get_text('output_method'), ['DOCX', 'Text' if st.session_state.current_language == 'en' else 'Текст'], horizontal=True)
-        output_text = st.text_area(get_text('results'), placeholder=get_text('results'), height=40, disabled=True, label_visibility="collapsed")
+        output_method = st.radio(get_text('output_method'), ['DOCX', 'Text' if st.session_state.current_language == 'en' else 'Текст'], horizontal=True, key="output_method")
+        output_text = st.text_area(get_text('results'), placeholder=get_text('results'), height=40, disabled=True, label_visibility="collapsed", key="output_text")
 
         # Кнопка обработки
-        if st.button(get_text('process'), use_container_width=True):
+        if st.button(get_text('process'), use_container_width=True, key="process_button"):
             if not style_config['elements'] and not style_config.get('gost_style', False):
                 st.error(get_text('error_select_element'))
                 return
@@ -818,21 +859,23 @@ def main():
                 label=get_text('doi_txt'),
                 data=txt_bytes,
                 file_name='doi_list.txt',
-                mime='text/plain'
+                mime='text/plain',
+                key="doi_download"
             )
             if output_method == 'DOCX':
                 st.download_button(
                     label=get_text('references_docx'),
                     data=output_doc_buffer,
                     file_name='references_custom.docx',
-                    mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                    mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    key="docx_download"
                 )
 
         # Экспорт/импорт стиля
         st.subheader("💾 Style Management")
         
         # Экспорт текущего стиля
-        export_file_name = st.text_input(get_text('export_file_name'), value="my_citation_style", placeholder="Enter file name")
+        export_file_name = st.text_input(get_text('export_file_name'), value="my_citation_style", placeholder="Enter file name", key="export_name")
         
         # Создаем конфигурацию текущего стиля для экспорта
         current_style_config = {
@@ -857,55 +900,25 @@ def main():
                 data=export_data,
                 file_name=f"{export_file_name}.json",
                 mime="application/json",
-                use_container_width=True
+                use_container_width=True,
+                key="export_button"
             )
         
         # Импорт стиля
         imported_file = st.file_uploader(get_text('import_file'), type=['json'], label_visibility="collapsed", key="style_importer")
         
-        if imported_file is not None:
+        if imported_file is not None and not st.session_state.style_applied:
             imported_style = import_style(imported_file)
             if imported_style:
-                # Сохраняем импортированный стиль и сбрасываем флаг применения
+                # Сохраняем импортированный стиль и устанавливаем флаг для применения
                 st.session_state.imported_style = imported_style
-                st.session_state.style_applied = False
+                st.session_state.apply_imported_style = True
                 st.success(get_text('import_success'))
-                
-                # Применяем импортированный стиль
-                st.session_state.num = imported_style.get('numbering_style', "No numbering")
-                st.session_state.auth = imported_style.get('author_format', "AA Smith")
-                st.session_state.sep = imported_style.get('author_separator', ", ")
-                st.session_state.etal = imported_style.get('et_al_limit', 0) or 0
-                st.session_state.use_and_checkbox = imported_style.get('use_and_bool', False)
-                st.session_state.doi = imported_style.get('doi_format', "10.10/xxx")
-                st.session_state.doilink = imported_style.get('doi_hyperlink', True)
-                st.session_state.page = imported_style.get('page_format', "122–128")
-                st.session_state.punct = imported_style.get('final_punctuation', "")
-                st.session_state.gost_style = imported_style.get('gost_style', False)
-                
-                # Применяем элементы
-                elements = imported_style.get('elements', [])
-                for i in range(8):
-                    if i < len(elements):
-                        element, config = elements[i]
-                        st.session_state[f"el{i}"] = element
-                        st.session_state[f"it{i}"] = config.get('italic', False)
-                        st.session_state[f"bd{i}"] = config.get('bold', False)
-                        st.session_state[f"pr{i}"] = config.get('parentheses', False)
-                        st.session_state[f"sp{i}"] = config.get('separator', ". ")
-                    else:
-                        st.session_state[f"el{i}"] = ""
-                        st.session_state[f"it{i}"] = False
-                        st.session_state[f"bd{i}"] = False
-                        st.session_state[f"pr{i}"] = False
-                        st.session_state[f"sp{i}"] = ". "
-                
-                st.session_state.style_applied = True
                 st.rerun()
 
     # Обновление текстового поля результатов
     if 'output_text' in st.session_state:
-        st.text_area(get_text('results'), value=st.session_state['output_text'], height=40, disabled=True, label_visibility="collapsed")
+        st.text_area(get_text('results'), value=st.session_state['output_text'], height=40, disabled=True, label_visibility="collapsed", key="results_output")
 
 if __name__ == "__main__":
     main()
