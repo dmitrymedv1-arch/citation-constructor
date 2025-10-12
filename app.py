@@ -181,6 +181,15 @@ def find_doi(reference):
             doi = re.sub(r'[^\d./A-Za-z-]', '', doi)
             return doi
     
+    # Если строка содержит только DOI (без другого текста)
+    clean_ref = reference.strip()
+    if re.match(r'^(doi:|DOI:)?\s*10\.\d{4,9}/[-._;()/:A-Z0-9]+\s*$', clean_ref, re.IGNORECASE):
+        doi_match = re.search(r'(10\.\d{4,9}/[-._;()/:A-Z0-9]+)', clean_ref)
+        if doi_match:
+            doi = doi_match.group(1).rstrip('.,;:')
+            doi = re.sub(r'[^\d./A-Za-z-]', '', doi)
+            return doi
+    
     # Если DOI не найден в явном виде, попробуем найти по библиографическим данным
     clean_ref = re.sub(r'\s*(https?://doi\.org/|doi:|DOI:)\s*[^\s,;]+', '', reference, flags=re.IGNORECASE)
     clean_ref = clean_ref.strip()
@@ -452,12 +461,14 @@ def process_references(references, style_config):
     doi_found_count = 0
     doi_not_found_count = 0
     progress_bar = tqdm(total=len(references), desc=get_text('processing'))
+    
     for ref in references:
         if is_section_header(ref):
             doi_list.append(f"{ref} [SECTION HEADER - SKIPPED]")
             formatted_refs.append((ref, False, None))
             progress_bar.update(1)
             continue
+            
         doi = find_doi(ref)
         if doi:
             doi_list.append(doi)
@@ -468,40 +479,64 @@ def process_references(references, style_config):
                 if not is_error:
                     doi_found_count += 1
                 else:
-                    doi_list[-1] = f"{ref}\nПроверьте источник и добавьте DOI вручную." if st.session_state.current_language == 'ru' else f"{ref}\nPlease check this source and insert the DOI manually."
+                    doi_list[-1] = f"{doi}\nПроверьте источник и добавьте DOI вручную." if st.session_state.current_language == 'ru' else f"{doi}\nPlease check this source and insert the DOI manually."
                     formatted_refs.append((f"{ref} Проверьте источник и добавьте DOI вручную." if st.session_state.current_language == 'ru' else f"{ref} Please check this source and insert the DOI manually.", True, None))
                     doi_not_found_count += 1
             else:
-                doi_list[-1] = f"{ref}\nПроверьте источник и добавьте DOI вручную." if st.session_state.current_language == 'ru' else f"{ref}\nPlease check this source and insert the DOI manually."
+                doi_list[-1] = f"{doi}\nПроверьте источник и добавьте DOI вручную." if st.session_state.current_language == 'ru' else f"{doi}\nPlease check this source and insert the DOI manually."
                 formatted_refs.append((f"{ref} Проверьте источник и добавьте DOI вручную." if st.session_state.current_language == 'ru' else f"{ref} Please check this source and insert the DOI manually.", True, None))
                 doi_not_found_count += 1
         else:
             doi_list.append(f"{ref}\nПроверьте источник и добавьте DOI вручную." if st.session_state.current_language == 'ru' else f"{ref}\nPlease check this source and insert the DOI manually.")
             formatted_refs.append((f"{ref} Проверьте источник и добавьте DOI вручную." if st.session_state.current_language == 'ru' else f"{ref} Please check this source and insert the DOI manually.", True, None))
             doi_not_found_count += 1
+            
         progress_bar.update(1)
+        
     progress_bar.close()
     st.write(f"**{get_text('statistics').format(doi_found_count, doi_not_found_count)}**")
+    
     output_txt_buffer = io.StringIO()
     for doi in doi_list:
         output_txt_buffer.write(f"{doi}\n")
     output_txt_buffer.seek(0)
     txt_bytes = io.BytesIO(output_txt_buffer.getvalue().encode('utf-8'))
+    
     return formatted_refs, txt_bytes, doi_found_count, doi_not_found_count
 
 def process_docx(input_file, style_config):
     doc = Document(input_file)
     references = [para.text.strip() for para in doc.paragraphs if para.text.strip()]
     st.write(f"**{get_text('found_references').format(len(references))}**")
-    formatted_refs, txt_bytes, doi_found_count, doi_not_found_count = process_references(references, style_config)
+    
+    # Дополнительная обработка: проверяем каждую ссылку на наличие DOI
+    processed_references = []
+    for ref in references:
+        if is_section_header(ref):
+            processed_references.append(ref)
+            continue
+            
+        # Если ссылка содержит только DOI в разных форматах
+        doi = find_doi(ref)
+        if doi and len(ref.strip()) < 100:  # Если строка короткая и содержит DOI
+            processed_references.append(doi)
+        else:
+            processed_references.append(ref)
+    
+    formatted_refs, txt_bytes, doi_found_count, doi_not_found_count = process_references(processed_references, style_config)
+    
     output_doc = Document()
     output_doc.add_heading('References in Custom Style' if st.session_state.current_language == 'en' else 'Ссылки в пользовательском стиле', level=1)
+    
     for i, (elements, is_error, metadata) in enumerate(formatted_refs, 1):
         numbering = style_config['numbering_style']
         prefix = "" if numbering == "No numbering" else f"{i}{numbering[-1] if numbering != '1' else ''} "
         para = output_doc.add_paragraph(prefix)
+        
         if is_error:
-            run = para.add_run(str(elements))
+            # Показываем оригинальный текст с желтым фоном
+            original_ref = processed_references[i-1] if i-1 < len(processed_references) else str(elements)
+            run = para.add_run(original_ref)
             apply_yellow_background(run)
         else:
             if metadata is None:
@@ -521,6 +556,7 @@ def process_docx(input_file, style_config):
                         para.add_run(separator)
                 if style_config['final_punctuation'] and not is_error:
                     para.add_run(".")
+    
     output_doc_buffer = io.BytesIO()
     output_doc.save(output_doc_buffer)
     output_doc_buffer.seek(0)
