@@ -141,7 +141,7 @@ if 'download_data' not in st.session_state:
 def get_text(key):
     return TRANSLATIONS[st.session_state.current_language].get(key, key)
 
-# Функции обработки (остаются без изменений)
+# Функции обработки
 def clean_text(text):
     return re.sub(r'<[^>]+>|&[^;]+;', '', text).strip()
 
@@ -164,14 +164,30 @@ def is_section_header(text):
 def find_doi(reference):
     if is_section_header(reference):
         return None
-    doi_pattern = r'(?:(?:https?://doi\.org/)|(?:doi:|DOI:))?(\d+\.\d+/[^\s,;]+)'
-    match = re.search(doi_pattern, reference)
-    if match:
-        return match.group(1).rstrip('.')
-    clean_ref = re.sub(r'\s*https?://doi\.org/[^\s]+', '', reference)
-    clean_ref = re.sub(r'\s*DOI:\s*[^\s]+', '', clean_ref).strip()
+    
+    # Улучшенное регулярное выражение для поиска DOI во всех форматах
+    doi_patterns = [
+        r'https?://doi\.org/(10\.\d{4,9}/[-._;()/:A-Z0-9]+)',  # https://doi.org/10.xxx/xxx
+        r'doi:\s*(10\.\d{4,9}/[-._;()/:A-Z0-9]+)',             # doi:10.xxx/xxx
+        r'DOI:\s*(10\.\d{4,9}/[-._;()/:A-Z0-9]+)',             # DOI:10.xxx/xxx
+        r'\b(10\.\d{4,9}/[-._;()/:A-Z0-9]+)\b'                 # 10.xxx/xxx (просто DOI)
+    ]
+    
+    for pattern in doi_patterns:
+        match = re.search(pattern, reference, re.IGNORECASE)
+        if match:
+            doi = match.group(1).rstrip('.,;:')
+            # Дополнительная очистка DOI
+            doi = re.sub(r'[^\d./A-Za-z-]', '', doi)
+            return doi
+    
+    # Если DOI не найден в явном виде, попробуем найти по библиографическим данным
+    clean_ref = re.sub(r'\s*(https?://doi\.org/|doi:|DOI:)\s*[^\s,;]+', '', reference, flags=re.IGNORECASE)
+    clean_ref = clean_ref.strip()
+    
     if len(clean_ref) < 30:
         return None
+    
     try:
         query = works.query(bibliographic=clean_ref).sort('relevance').order('desc')
         for result in query:
@@ -179,6 +195,7 @@ def find_doi(reference):
                 return result['DOI']
     except:
         return None
+    
     return None
 
 def extract_metadata(doi):
