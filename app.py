@@ -1233,8 +1233,7 @@ def main():
         st.markdown(f"**{get_text('style_presets')}**")
         
         # Добавляем тултип с информацией о стилях
-        with st.expander("ℹ️ Info"):
-            st.markdown(f"<small>{get_text('style_preset_tooltip')}</small>", unsafe_allow_html=True)
+        st.markdown(f"<small>ℹ️ {get_text('style_preset_tooltip')}</small>", unsafe_allow_html=True)
         
         # Кнопки стилей в колонках
         col_gost, col_acs, col_rsc = st.columns(3)
@@ -1279,7 +1278,7 @@ def main():
                 st.session_state.use_ampersand_checkbox = False
                 st.session_state.doi = "10.10/xxx"
                 st.session_state.doilink = True
-                st.session_state.page = "122−128"
+                st.session_state.page = "122–128"  # Исправлено: используем существующий формат
                 st.session_state.punct = "."
                 
                 # Очищаем все конфигурации элементов
@@ -1308,7 +1307,7 @@ def main():
                 st.session_state.use_ampersand_checkbox = False
                 st.session_state.doi = "10.10/xxx"
                 st.session_state.doilink = True
-                st.session_state.page = "122"
+                st.session_state.page = "122–128"  # Исправлено: используем существующий формат
                 st.session_state.punct = "."
                 
                 # Очищаем все конфигурации элементов
@@ -1410,11 +1409,18 @@ def main():
         )
         
         # Настройки страниц
+        page_options = ["122 - 128", "122-128", "122 – 128", "122–128", "122–8"]
+        # Безопасное получение индекса для page_format
+        current_page = st.session_state.page
+        page_index = 3  # Значение по умолчанию "122–128"
+        if current_page in page_options:
+            page_index = page_options.index(current_page)
+        
         page_format = st.selectbox(
             get_text('page_format'), 
-            ["122 - 128", "122-128", "122 – 128", "122–128", "122–8"], 
+            page_options, 
             key="page", 
-            index=["122 - 128", "122-128", "122 – 128", "122–128", "122–8"].index(st.session_state.page)
+            index=page_index
         )
         
         # Конечная пунктуация
