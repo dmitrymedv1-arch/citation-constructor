@@ -11,8 +11,7 @@ import io
 from tqdm import tqdm
 from docx.oxml import OxmlElement
 import base64
-import asyncio
-import aiohttp
+import html
 import concurrent.futures
 from typing import List, Dict, Tuple, Set
 import hashlib
@@ -79,7 +78,8 @@ TRANSLATIONS = {
         'batch_processing': 'Batch processing DOI...',
         'extracting_metadata': 'Extracting metadata...',
         'checking_duplicates': 'Checking for duplicates...',
-        'retrying_failed': 'Retrying failed DOI requests...'
+        'retrying_failed': 'Retrying failed DOI requests...',
+        'bibliographic_search': 'Searching by bibliographic data...'
     },
     'ru': {
         'header': '🎨 Конструктор стилей цитирования',
@@ -138,7 +138,8 @@ TRANSLATIONS = {
         'batch_processing': 'Пакетная обработка DOI...',
         'extracting_metadata': 'Извлечение метаданных...',
         'checking_duplicates': 'Проверка на дубликаты...',
-        'retrying_failed': 'Повторная попытка для неудачных DOI...'
+        'retrying_failed': 'Повторная попытка для неудачных DOI...',
+        'bibliographic_search': 'Поиск по библиографическим данным...'
     }
 }
 
@@ -174,7 +175,14 @@ def get_text(key):
     return TRANSLATIONS[st.session_state.current_language].get(key, key)
 
 def clean_text(text):
-    return re.sub(r'<[^>]+>|&[^;]+;', '', text).strip()
+    """Очищает текст от HTML тегов и entities"""
+    # Сначала убираем HTML теги
+    text = re.sub(r'<[^>]+>', '', text)
+    # Затем декодируем HTML entities
+    text = html.unescape(text)
+    # Убираем оставшиеся XML/HTML entities
+    text = re.sub(r'&[^;]+;', '', text)
+    return text.strip()
 
 def normalize_name(name):
     if not name:
@@ -238,6 +246,23 @@ def find_doi(reference):
             doi = doi_match.group(1).rstrip('.,;:')
             return doi
     
+    # ВАЖНЫЙ БЛОК: Если DOI не найден в явном виде, попробуем найти по библиографическим данным
+    clean_ref = re.sub(r'\s*(https?://doi\.org/|doi:|DOI:)\s*[^\s,;]+', '', reference, flags=re.IGNORECASE)
+    clean_ref = clean_ref.strip()
+    
+    if len(clean_ref) < 30:
+        return None
+    
+    try:
+        # Используем Crossref API для поиска по библиографическим данным
+        query = works.query(bibliographic=clean_ref).sort('relevance').order('desc')
+        for result in query:
+            if 'DOI' in result:
+                return result['DOI']
+    except Exception as e:
+        print(f"Error in bibliographic search for '{clean_ref}': {e}")
+        return None
+    
     return None
 
 def normalize_doi(doi):
@@ -279,45 +304,30 @@ def generate_reference_hash(metadata):
     # Создаем MD5 хеш
     return hashlib.md5(hash_string.encode('utf-8')).hexdigest()
 
-async def extract_metadata_batch(doi_list, progress_callback=None):
+def extract_metadata_batch(doi_list, progress_callback=None):
     """Пакетное извлечение метаданных через Crossref API с повторными попытками"""
     if not doi_list:
         return []
     
-    results = [None] * len(doi_list)  # Инициализируем список результатов
-    session_timeout = aiohttp.ClientTimeout(total=30)
+    results = [None] * len(doi_list)
     
-    # Первая попытка - пакетная обработка
-    async with aiohttp.ClientSession(timeout=session_timeout) as session:
-        tasks = []
-        for i, doi in enumerate(doi_list):
-            task = asyncio.create_task(fetch_metadata_with_retry(session, doi, i))
-            tasks.append(task)
-        
-        # Ограничиваем количество одновременных запросов
-        semaphore = asyncio.Semaphore(5)  # 5 одновременных запросов
-        
-        async def bounded_task(task):
-            async with semaphore:
-                return await task
-        
-        bounded_tasks = [bounded_task(task) for task in tasks]
+    # Первая попытка - пакетная обработка с ThreadPoolExecutor
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+        future_to_index = {executor.submit(extract_metadata_sync, doi): i for i, doi in enumerate(doi_list)}
         
         completed = 0
-        for future in asyncio.as_completed(bounded_tasks):
+        for future in concurrent.futures.as_completed(future_to_index):
+            index = future_to_index[future]
             try:
-                result = await future
-                if result:
-                    index, metadata = result
-                    results[index] = metadata
-                completed += 1
-                if progress_callback:
-                    progress_callback(completed, len(doi_list))
+                result = future.result()
+                results[index] = result
             except Exception as e:
-                print(f"Error in batch processing: {e}")
-                completed += 1
-                if progress_callback:
-                    progress_callback(completed, len(doi_list))
+                print(f"Error processing DOI at index {index}: {e}")
+                results[index] = None
+            
+            completed += 1
+            if progress_callback:
+                progress_callback(completed, len(doi_list))
     
     # Вторая попытка - повтор для неудачных запросов
     failed_indices = [i for i, result in enumerate(results) if result is None]
@@ -327,118 +337,31 @@ async def extract_metadata_batch(doi_list, progress_callback=None):
         if progress_callback:
             progress_callback(len(doi_list) - len(failed_indices), len(doi_list), retry_mode=True)
         
-        async with aiohttp.ClientSession(timeout=session_timeout) as session:
-            retry_tasks = []
+        # Более медленная повторная попытка с меньшим количеством потоков
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            retry_futures = {}
             for index in failed_indices:
                 doi = doi_list[index]
-                task = asyncio.create_task(fetch_metadata_with_retry(session, doi, index, is_retry=True))
-                retry_tasks.append(task)
+                future = executor.submit(extract_metadata_sync, doi)
+                retry_futures[future] = index
             
-            retry_semaphore = asyncio.Semaphore(3)  # Меньше одновременных запросов для повторной попытки
-            
-            async def bounded_retry_task(task):
-                async with retry_semaphore:
-                    return await task
-            
-            bounded_retry_tasks = [bounded_retry_task(task) for task in retry_tasks]
-            
-            for future in asyncio.as_completed(bounded_retry_tasks):
+            for future in concurrent.futures.as_completed(retry_futures):
+                index = retry_futures[future]
                 try:
-                    result = await future
-                    if result:
-                        index, metadata = result
-                        results[index] = metadata
-                    completed = len(doi_list) - len([r for r in results if r is None])
-                    if progress_callback:
-                        progress_callback(completed, len(doi_list), retry_mode=True)
+                    result = future.result()
+                    results[index] = result
                 except Exception as e:
-                    print(f"Error in retry processing: {e}")
-                    completed = len(doi_list) - len([r for r in results if r is None])
-                    if progress_callback:
-                        progress_callback(completed, len(doi_list), retry_mode=True)
+                    print(f"Error in retry processing DOI at index {index}: {e}")
+                    results[index] = None
+                
+                completed = len(doi_list) - len([r for r in results if r is None])
+                if progress_callback:
+                    progress_callback(completed, len(doi_list), retry_mode=True)
     
     return results
 
-async def fetch_metadata_with_retry(session, doi, index, is_retry=False):
-    """Асинхронный запрос метаданных с повторной попыткой при неудаче"""
-    try:
-        url = f"https://api.crossref.org/works/{doi}"
-        async with session.get(url) as response:
-            if response.status == 200:
-                data = await response.json()
-                metadata = parse_metadata(data, doi)
-                if metadata:
-                    return (index, metadata)
-                else:
-                    # Если парсинг не удался, пробуем еще раз для retry
-                    if is_retry:
-                        return None
-                    # Для первого запроса возвращаем None, чтобы попробовать еще раз
-                    return None
-            else:
-                print(f"HTTP {response.status} for DOI: {doi}")
-                return None
-    except Exception as e:
-        print(f"Error fetching metadata for DOI {doi}: {e}")
-        return None
-
-def parse_metadata(data, doi):
-    """Парсит метаданные из ответа Crossref"""
-    try:
-        result = data.get('message', {})
-        if not result:
-            return None
-        
-        authors = result.get('author', [])
-        author_list = []
-        for author in authors:
-            given_name = author.get('given', '')
-            family_name = normalize_name(author.get('family', ''))
-            author_list.append({
-                'given': given_name,
-                'family': family_name
-            })
-        
-        title = ''
-        if 'title' in result and result['title']:
-            title = clean_text(result['title'][0])
-        
-        journal = ''
-        if 'container-title' in result and result['container-title']:
-            journal = result['container-title'][0]
-        
-        year = None
-        if 'published' in result and 'date-parts' in result['published']:
-            date_parts = result['published']['date-parts']
-            if date_parts and date_parts[0]:
-                year = date_parts[0][0]
-        
-        volume = result.get('volume', '')
-        issue = result.get('issue', '')
-        pages = result.get('page', '')
-        article_number = result.get('article-number', '')
-        
-        metadata = {
-            'authors': author_list,
-            'title': title,
-            'journal': journal,
-            'year': year,
-            'volume': volume,
-            'issue': issue,
-            'pages': pages,
-            'article_number': article_number,
-            'doi': doi,
-            'original_doi': doi
-        }
-        
-        return metadata
-        
-    except Exception as e:
-        print(f"Error parsing metadata for DOI {doi}: {e}")
-        return None
-
 def extract_metadata_sync(doi):
-    """Синхронная версия извлечения метаданных (для обратной совместимости)"""
+    """Синхронная версия извлечения метаданных"""
     try:
         result = works.doi(doi)
         if not result:
@@ -460,7 +383,7 @@ def extract_metadata_sync(doi):
         
         journal = ''
         if 'container-title' in result and result['container-title']:
-            journal = result['container-title'][0]
+            journal = clean_text(result['container-title'][0])
         
         year = None
         if 'published' in result and 'date-parts' in result['published']:
@@ -865,19 +788,8 @@ def process_references_with_progress(references, style_config, progress_containe
             else:
                 batch_status.text(f"{get_text('extracting_metadata')} {completed}/{total}")
         
-        # Запускаем асинхронную пакетную обработку с повторными попытками
-        try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            metadata_results = loop.run_until_complete(
-                extract_metadata_batch(valid_dois, update_batch_progress)
-            )
-            loop.close()
-        except Exception as e:
-            # Fallback на синхронную обработку при ошибках
-            metadata_results = []
-            for doi in valid_dois:
-                metadata_results.append(extract_metadata_sync(doi))
+        # Запускаем пакетную обработку с ThreadPoolExecutor
+        metadata_results = extract_metadata_batch(valid_dois, update_batch_progress)
         
         # Обрабатываем результаты
         doi_to_metadata = dict(zip(valid_dois, metadata_results))
