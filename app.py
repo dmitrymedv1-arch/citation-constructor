@@ -153,35 +153,41 @@ def normalize_name(name):
         return name.upper()
 
 def is_section_header(text):
+    """Определяет, является ли текст заголовком раздела"""
     text_upper = text.upper().strip()
+    
+    # Проверяем только явные паттерны заголовков
     section_patterns = [
-        r'^NOTES?\s+AND\s+REFERENCES?',
-        r'^REFERENCES?',
-        r'^BIBLIOGRAPHY',
-        r'^LITERATURE',
-        r'^WORKS?\s+CITED',
-        r'^SOURCES?',
-        r'^CHAPTER\s+\d+',
-        r'^SECTION\s+\d+',
-        r'^PART\s+\d+'
+        r'^NOTES?\s+AND\s+REFERENCES?$',
+        r'^REFERENCES?$',
+        r'^BIBLIOGRAPHY$',
+        r'^LITERATURE$',
+        r'^WORKS?\s+CITED$',
+        r'^SOURCES?$',
+        r'^CHAPTER\s+\d+$',
+        r'^SECTION\s+\d+$',
+        r'^PART\s+\d+$'
     ]
+    
     for pattern in section_patterns:
         if re.search(pattern, text_upper):
             return True
-    if len(text.strip()) < 50 and len(text.strip().split()) <= 5:
-        return True
+    
+    # Убираем слишком агрессивную проверку на короткие строки
+    # DOI могут быть короткими, но это не заголовки
     return False
 
 def find_doi(reference):
+    """Находит DOI в строке ссылки"""
     if is_section_header(reference):
         return None
     
-    # Улучшенное регулярное выражение для поиска DOI во всех форматах
+    # Улучшенные паттерны для поиска DOI
     doi_patterns = [
-        r'https?://doi\.org/(10\.\d{4,9}/[-._;()/:A-Z0-9]+)',  # https://doi.org/10.xxx/xxx
-        r'doi:\s*(10\.\d{4,9}/[-._;()/:A-Z0-9]+)',             # doi:10.xxx/xxx
-        r'DOI:\s*(10\.\d{4,9}/[-._;()/:A-Z0-9]+)',             # DOI:10.xxx/xxx
-        r'\b(10\.\d{4,9}/[-._;()/:A-Z0-9]+)\b'                 # 10.xxx/xxx (просто DOI)
+        r'https?://doi\.org/(10\.\d{4,9}/[-._;()/:A-Za-z0-9]+)',  # https://doi.org/10.xxx/xxx
+        r'doi:\s*(10\.\d{4,9}/[-._;()/:A-Za-z0-9]+)',             # doi:10.xxx/xxx
+        r'DOI:\s*(10\.\d{4,9}/[-._;()/:A-Za-z0-9]+)',             # DOI:10.xxx/xxx
+        r'\b(10\.\d{4,9}/[-._;()/:A-Za-z0-9]+)\b'                 # 10.xxx/xxx (просто DOI)
     ]
     
     for pattern in doi_patterns:
@@ -194,8 +200,8 @@ def find_doi(reference):
     
     # Если строка содержит только DOI (без другого текста)
     clean_ref = reference.strip()
-    if re.match(r'^(doi:|DOI:)?\s*10\.\d{4,9}/[-._;()/:A-Z0-9]+\s*$', clean_ref, re.IGNORECASE):
-        doi_match = re.search(r'(10\.\d{4,9}/[-._;()/:A-Z0-9]+)', clean_ref)
+    if re.match(r'^(doi:|DOI:)?\s*10\.\d{4,9}/[-._;()/:A-Za-z0-9]+\s*$', clean_ref, re.IGNORECASE):
+        doi_match = re.search(r'(10\.\d{4,9}/[-._;()/:A-Za-z0-9]+)', clean_ref)
         if doi_match:
             doi = doi_match.group(1).rstrip('.,;:')
             return doi
@@ -203,9 +209,12 @@ def find_doi(reference):
     return None
 
 def extract_metadata(doi):
+    """Извлекает метаданные по DOI через Crossref API"""
     try:
+        print(f"Extracting metadata for DOI: {doi}")
         result = works.doi(doi)
         if not result:
+            print(f"No result for DOI: {doi}")
             return None
         
         authors = result.get('author', [])
@@ -237,7 +246,7 @@ def extract_metadata(doi):
         pages = result.get('page', '')
         article_number = result.get('article-number', '')
         
-        return {
+        metadata = {
             'authors': author_list,
             'title': title,
             'journal': journal,
@@ -248,6 +257,10 @@ def extract_metadata(doi):
             'article_number': article_number,
             'doi': doi
         }
+        
+        print(f"Successfully extracted metadata: {metadata['title'][:50]}...")
+        return metadata
+        
     except Exception as e:
         print(f"Error extracting metadata for DOI {doi}: {e}")
         return None
@@ -553,6 +566,7 @@ def apply_yellow_background(run):
     run._element.get_or_add_rPr().append(shd)
 
 def process_references(references, style_config):
+    """Обрабатывает список ссылок и возвращает отформатированные результаты"""
     doi_list = []
     formatted_refs = []
     doi_found_count = 0
@@ -568,11 +582,14 @@ def process_references(references, style_config):
             continue
             
         doi = find_doi(ref)
+        print(f"Processing reference: '{ref}' -> DOI: {doi}")
+        
         if doi:
             doi_list.append(doi)
             metadata = extract_metadata(doi)
             
             if metadata:
+                print(f"Successfully got metadata for DOI: {doi}")
                 formatted_ref, is_error = format_reference(metadata, style_config)
                 formatted_refs.append((formatted_ref, is_error, metadata))
                 
@@ -587,6 +604,7 @@ def process_references(references, style_config):
                         formatted_refs.append((f"{ref} Please check this source and insert the DOI manually.", True, None))
                     doi_not_found_count += 1
             else:
+                print(f"Failed to get metadata for DOI: {doi}")
                 if st.session_state.current_language == 'ru':
                     doi_list[-1] = f"{doi}\nПроверьте источник и добавьте DOI вручную."
                     formatted_refs.append((f"{ref} Проверьте источник и добавьте DOI вручную.", True, None))
@@ -595,6 +613,7 @@ def process_references(references, style_config):
                     formatted_refs.append((f"{ref} Please check this source and insert the DOI manually.", True, None))
                 doi_not_found_count += 1
         else:
+            print(f"No DOI found in reference: '{ref}'")
             if st.session_state.current_language == 'ru':
                 doi_list.append(f"{ref}\nПроверьте источник и добавьте DOI вручную.")
                 formatted_refs.append((f"{ref} Проверьте источник и добавьте DOI вручную.", True, None))
@@ -620,6 +639,7 @@ def process_references(references, style_config):
     return formatted_refs, txt_bytes, doi_found_count, doi_not_found_count
 
 def process_docx(input_file, style_config):
+    """Обрабатывает DOCX файл с ссылками"""
     doc = Document(input_file)
     references = []
     
@@ -629,7 +649,7 @@ def process_docx(input_file, style_config):
     
     st.write(f"**{get_text('found_references').format(len(references))}**")
     
-    # Обрабатываем все ссылки напрямую - не нужно дополнительной обработки
+    # Обрабатываем все ссылки напрямую
     formatted_refs, txt_bytes, doi_found_count, doi_not_found_count = process_references(references, style_config)
     
     # Создаем новый DOCX документ с отформатированными ссылками
