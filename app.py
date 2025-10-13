@@ -155,7 +155,7 @@ TRANSLATIONS = {
 
 # Хранение текущего языка
 if 'current_language' not in st.session_state:
-    st.session_state.current_language = 'en'  # Changed from 'ru' to 'en'
+    st.session_state.current_language = 'en'
 
 # Хранение импортированного стиля и флага применения
 if 'imported_style' not in st.session_state:
@@ -1211,12 +1211,12 @@ def main():
         st.rerun()
 
     # Переключение языка
-    language_options = [('English', 'en'), ('Русский', 'ru')]  # Changed order - English first
+    language_options = [('English', 'en'), ('Русский', 'ru')]
     selected_language = st.selectbox(
         get_text('language'), 
         language_options, 
         format_func=lambda x: x[0], 
-        index=0 if st.session_state.current_language == 'en' else 1,  # Changed index
+        index=0 if st.session_state.current_language == 'en' else 1,
         key="language_selector"
     )
     st.session_state.current_language = selected_language[1]
@@ -1233,7 +1233,7 @@ def main():
         st.markdown(f"**{get_text('style_presets')}**")
         
         # Добавляем тултип с информацией о стилях
-        with st.expander("ℹ️", help=get_text('style_preset_tooltip')):
+        with st.expander("ℹ️ Info"):
             st.markdown(f"<small>{get_text('style_preset_tooltip')}</small>", unsafe_allow_html=True)
         
         # Кнопки стилей в колонках
