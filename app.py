@@ -946,7 +946,7 @@ def process_references_with_progress(references, style_config, progress_containe
     if valid_dois:
         status_container.info(get_text('batch_processing'))
         
-        # Создаем прогресс-бар для пакетной обработка
+        # Создаем прогресс-бар для пакетной обработки
         batch_progress_bar = progress_container.progress(0)
         batch_status = status_container.empty()
         
@@ -2008,5 +2008,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
