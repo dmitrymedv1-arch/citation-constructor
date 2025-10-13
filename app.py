@@ -28,10 +28,11 @@ TRANSLATIONS = {
         'author_separator': 'Separator:',
         'et_al_limit': 'Et al after:',
         'use_and': "'and'",
+        'use_ampersand': "'&'",
         'doi_format': 'DOI format:',
         'doi_hyperlink': 'DOI as hyperlink',
         'page_format': 'Pages:',
-        'final_punctuation': 'Punctuation:',
+        'final_punctuation': 'Final punctuation:',
         'element': 'Element',
         'italic': 'Italic',
         'bold': 'Bold',
@@ -77,10 +78,11 @@ TRANSLATIONS = {
         'author_separator': 'Разделитель:',
         'et_al_limit': 'Et al после:',
         'use_and': "'и'",
+        'use_ampersand': "'&'",
         'doi_format': 'Формат DOI:',
         'doi_hyperlink': 'DOI как ссылка',
         'page_format': 'Страницы:',
-        'final_punctuation': 'Пунктуация:',
+        'final_punctuation': 'Конечная пунктуация:',
         'element': 'Элемент',
         'italic': 'Курсив',
         'bold': 'Жирный',
@@ -137,6 +139,12 @@ if 'show_results' not in st.session_state:
     st.session_state.show_results = False
 if 'download_data' not in st.session_state:
     st.session_state.download_data = {}
+
+# Для хранения состояния чекбоксов and/&
+if 'use_and_checkbox' not in st.session_state:
+    st.session_state.use_and_checkbox = False
+if 'use_ampersand_checkbox' not in st.session_state:
+    st.session_state.use_ampersand_checkbox = False
 
 def get_text(key):
     return TRANSLATIONS[st.session_state.current_language].get(key, key)
@@ -265,14 +273,14 @@ def extract_metadata(doi):
         print(f"Error extracting metadata for DOI {doi}: {e}")
         return None
 
-def format_authors(authors, author_format, separator, et_al_limit, use_and_bool):
+def format_authors(authors, author_format, separator, et_al_limit, use_and_bool, use_ampersand_bool):
     if not authors:
         return ""
     
     author_str = ""
     
     # Определяем лимит авторов для отображения
-    if use_and_bool:
+    if use_and_bool or use_ampersand_bool:
         limit = len(authors)
     else:
         limit = et_al_limit if et_al_limit and et_al_limit > 0 else len(authors)
@@ -313,17 +321,17 @@ def format_authors(authors, author_format, separator, et_al_limit, use_and_bool)
         
         # Добавляем разделитель между авторами
         if i < len(authors[:limit]) - 1:
-            if i == len(authors[:limit]) - 2 and use_and_bool:
-                # Используем "and" или "и" в зависимости от языка
-                if st.session_state.current_language == 'en':
+            if i == len(authors[:limit]) - 2 and (use_and_bool or use_ampersand_bool):
+                # Используем "and" или "&" в зависимости от выбора
+                if use_and_bool:
                     author_str += " and "
-                else:
-                    author_str += " и "
+                else:  # use_ampersand_bool
+                    author_str += " & "
             else:
                 author_str += separator
     
     # Добавляем "et al" если нужно
-    if et_al_limit and len(authors) > et_al_limit and not use_and_bool:
+    if et_al_limit and len(authors) > et_al_limit and not (use_and_bool or use_ampersand_bool):
         author_str += " et al"
     
     return author_str.strip()
@@ -405,7 +413,8 @@ def format_reference(metadata, style_config, for_preview=False):
                 style_config['author_format'],
                 style_config['author_separator'],
                 style_config['et_al_limit'],
-                style_config['use_and_bool']
+                style_config['use_and_bool'],
+                style_config['use_ampersand_bool']
             )
         elif element == "Title":
             value = metadata['title']
@@ -596,30 +605,21 @@ def process_references(references, style_config):
                 if not is_error:
                     doi_found_count += 1
                 else:
-                    if st.session_state.current_language == 'ru':
-                        doi_list[-1] = f"{doi}\nПроверьте источник и добавьте DOI вручную."
-                        formatted_refs.append((f"{ref} Проверьте источник и добавьте DOI вручную.", True, None))
-                    else:
-                        doi_list[-1] = f"{doi}\nPlease check this source and insert the DOI manually."
-                        formatted_refs.append((f"{ref} Please check this source and insert the DOI manually.", True, None))
+                    error_message = f"{ref} [ОШИБКА: Не удалось отформатировать ссылку. Проверьте DOI вручную.]" if st.session_state.current_language == 'ru' else f"{ref} [ERROR: Could not format reference. Please check DOI manually.]"
+                    doi_list[-1] = f"{doi}\nПроверьте источник и добавьте DOI вручную." if st.session_state.current_language == 'ru' else f"{doi}\nPlease check this source and insert the DOI manually."
+                    formatted_refs.append((error_message, True, None))
                     doi_not_found_count += 1
             else:
                 print(f"Failed to get metadata for DOI: {doi}")
-                if st.session_state.current_language == 'ru':
-                    doi_list[-1] = f"{doi}\nПроверьте источник и добавьте DOI вручную."
-                    formatted_refs.append((f"{ref} Проверьте источник и добавьте DOI вручную.", True, None))
-                else:
-                    doi_list[-1] = f"{doi}\nPlease check this source and insert the DOI manually."
-                    formatted_refs.append((f"{ref} Please check this source and insert the DOI manually.", True, None))
+                error_message = f"{ref} [ОШИБКА: Не удалось получить метаданные по DOI. Проверьте DOI вручную.]" if st.session_state.current_language == 'ru' else f"{ref} [ERROR: Could not get metadata for DOI. Please check DOI manually.]"
+                doi_list[-1] = f"{doi}\nПроверьте источник и добавьте DOI вручную." if st.session_state.current_language == 'ru' else f"{doi}\nPlease check this source and insert the DOI manually."
+                formatted_refs.append((error_message, True, None))
                 doi_not_found_count += 1
         else:
             print(f"No DOI found in reference: '{ref}'")
-            if st.session_state.current_language == 'ru':
-                doi_list.append(f"{ref}\nПроверьте источник и добавьте DOI вручную.")
-                formatted_refs.append((f"{ref} Проверьте источник и добавьте DOI вручную.", True, None))
-            else:
-                doi_list.append(f"{ref}\nPlease check this source and insert the DOI manually.")
-                formatted_refs.append((f"{ref} Please check this source and insert the DOI manually.", True, None))
+            error_message = f"{ref} [ОШИБКА: DOI не найден. Проверьте ссылку вручную.]" if st.session_state.current_language == 'ru' else f"{ref} [ERROR: DOI not found. Please check reference manually.]"
+            doi_list.append(f"{ref}\nПроверьте источник и добавьте DOI вручную." if st.session_state.current_language == 'ru' else f"{ref}\nPlease check this source and insert the DOI manually.")
+            formatted_refs.append((error_message, True, None))
             doi_not_found_count += 1
             
         progress_bar.update(1)
@@ -682,9 +682,8 @@ def process_docx(input_file, style_config):
         para = output_doc.add_paragraph(prefix)
         
         if is_error:
-            # Показываем оригинальный текст с желтым фоном
-            original_ref = references[i-1] if i-1 < len(references) else str(elements)
-            run = para.add_run(original_ref)
+            # Показываем оригинальный текст с желтым фоном и сообщением об ошибке
+            run = para.add_run(str(elements))
             apply_yellow_background(run)
         else:
             if metadata is None:
@@ -764,6 +763,7 @@ def apply_imported_style(imported_style):
     st.session_state.sep = imported_style.get('author_separator', ", ")
     st.session_state.etal = imported_style.get('et_al_limit', 0) or 0
     st.session_state.use_and_checkbox = imported_style.get('use_and_bool', False)
+    st.session_state.use_ampersand_checkbox = imported_style.get('use_ampersand_bool', False)
     st.session_state.doi = imported_style.get('doi_format', "10.10/xxx")
     st.session_state.doilink = imported_style.get('doi_hyperlink', True)
     st.session_state.page = imported_style.get('page_format', "122–128")
@@ -844,6 +844,7 @@ def main():
             st.session_state.sep = ", "
             st.session_state.etal = 0
             st.session_state.use_and_checkbox = False
+            st.session_state.use_ampersand_checkbox = False
             st.session_state.doi = "https://dx.doi.org/10.10/xxx"
             st.session_state.doilink = True
             st.session_state.page = "122–128"
@@ -869,6 +870,7 @@ def main():
             'sep': ", ",
             'etal': 0,
             'use_and_checkbox': False,
+            'use_ampersand_checkbox': False,
             'doi': "10.10/xxx",
             'doilink': True,
             'page': "122–128",
@@ -911,11 +913,22 @@ def main():
             value=st.session_state.etal
         )
         
-        use_and_checkbox = st.checkbox(
-            get_text('use_and'), 
-            key="use_and_checkbox", 
-            value=st.session_state.use_and_checkbox
-        )
+        # Чекбоксы для разделителей авторов
+        col_and, col_amp = st.columns(2)
+        with col_and:
+            use_and_checkbox = st.checkbox(
+                get_text('use_and'), 
+                key="use_and_checkbox", 
+                value=st.session_state.use_and_checkbox,
+                disabled=st.session_state.use_ampersand_checkbox
+            )
+        with col_amp:
+            use_ampersand_checkbox = st.checkbox(
+                get_text('use_ampersand'), 
+                key="use_ampersand_checkbox", 
+                value=st.session_state.use_ampersand_checkbox,
+                disabled=st.session_state.use_and_checkbox
+            )
         
         # Настройки DOI
         doi_format = st.selectbox(
@@ -1037,6 +1050,7 @@ def main():
             'author_separator': st.session_state.sep,
             'et_al_limit': st.session_state.etal if st.session_state.etal > 0 else None,
             'use_and_bool': st.session_state.use_and_checkbox,
+            'use_ampersand_bool': st.session_state.use_ampersand_checkbox,
             'doi_format': st.session_state.doi,
             'doi_hyperlink': st.session_state.doilink,
             'page_format': st.session_state.page,
@@ -1052,16 +1066,16 @@ def main():
             preview_metadata = {
                 'authors': [
                     {
-                        'given': 'John A.' if st.session_state.current_language == 'en' else 'Иван А.', 
-                        'family': 'Smith' if st.session_state.current_language == 'en' else 'Иванов'
+                        'given': 'John A.', 
+                        'family': 'Smith'
                     }, 
                     {
-                        'given': 'Alice B.' if st.session_state.current_language == 'en' else 'Анна Б.', 
-                        'family': 'Doe' if st.session_state.current_language == 'en' else 'Петрова'
+                        'given': 'Alice B.', 
+                        'family': 'Doe'
                     }
                 ],
-                'title': 'Article Title' if st.session_state.current_language == 'en' else 'Название статьи',
-                'journal': 'Journal Name' if st.session_state.current_language == 'en' else 'Название журнала',
+                'title': 'Article Title',
+                'journal': 'Journal Name',
                 'year': 2020,
                 'volume': '15',
                 'issue': '3',
@@ -1100,16 +1114,16 @@ def main():
             preview_metadata = {
                 'authors': [
                     {
-                        'given': 'John A.' if st.session_state.current_language == 'en' else 'Иван А.', 
-                        'family': 'Smith' if st.session_state.current_language == 'en' else 'Иванов'
+                        'given': 'John A.', 
+                        'family': 'Smith'
                     }, 
                     {
-                        'given': 'Alice B.' if st.session_state.current_language == 'en' else 'Анна Б.', 
-                        'family': 'Doe' if st.session_state.current_language == 'en' else 'Петрова'
+                        'given': 'Alice B.', 
+                        'family': 'Doe'
                     }
                 ],
-                'title': 'Article Title' if st.session_state.current_language == 'en' else 'Название статьи',
-                'journal': 'Journal Name' if st.session_state.current_language == 'en' else 'Название журнала',
+                'title': 'Article Title',
+                'journal': 'Journal Name',
                 'year': 2020,
                 'volume': '15',
                 'issue': '3',
@@ -1172,16 +1186,17 @@ def main():
             key="output_method"
         )
         
-        # Текстовое поле для результатов
-        output_text_value = st.session_state.output_text_value if st.session_state.show_results else ""
-        st.text_area(
-            get_text('results'), 
-            value=output_text_value, 
-            height=40, 
-            disabled=True, 
-            label_visibility="collapsed", 
-            key="output_text"
-        )
+        # Текстовое поле для результатов (показывается только если выбран текстовый вывод)
+        if output_method == 'Text' if st.session_state.current_language == 'en' else 'Текст':
+            output_text_value = st.session_state.output_text_value if st.session_state.show_results else ""
+            st.text_area(
+                get_text('results'), 
+                value=output_text_value, 
+                height=40, 
+                disabled=True, 
+                label_visibility="collapsed", 
+                key="output_text"
+            )
 
         # Кнопка обработки
         if st.button(get_text('process'), use_container_width=True, key="process_button"):
@@ -1352,6 +1367,7 @@ def main():
             'author_separator': st.session_state.sep,
             'et_al_limit': st.session_state.etal if st.session_state.etal > 0 else None,
             'use_and_bool': st.session_state.use_and_checkbox,
+            'use_ampersand_bool': st.session_state.use_ampersand_checkbox,
             'doi_format': st.session_state.doi,
             'doi_hyperlink': st.session_state.doilink,
             'page_format': st.session_state.page,
