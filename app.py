@@ -200,21 +200,6 @@ def find_doi(reference):
             doi = doi_match.group(1).rstrip('.,;:')
             return doi
     
-    # Если DOI не найден в явном виде, попробуем найти по библиографическим данным
-    clean_ref = re.sub(r'\s*(https?://doi\.org/|doi:|DOI:)\s*[^\s,;]+', '', reference, flags=re.IGNORECASE)
-    clean_ref = clean_ref.strip()
-    
-    if len(clean_ref) < 30:
-        return None
-    
-    try:
-        query = works.query(bibliographic=clean_ref).sort('relevance').order('desc')
-        for result in query:
-            if 'DOI' in result:
-                return result['DOI']
-    except:
-        return None
-    
     return None
 
 def extract_metadata(doi):
@@ -644,21 +629,8 @@ def process_docx(input_file, style_config):
     
     st.write(f"**{get_text('found_references').format(len(references))}**")
     
-    # Дополнительная обработка: проверяем каждую ссылку на наличие DOI
-    processed_references = []
-    for ref in references:
-        if is_section_header(ref):
-            processed_references.append(ref)
-            continue
-            
-        # Если ссылка содержит только DOI в разных форматах
-        doi = find_doi(ref)
-        if doi and len(ref.strip()) < 100:  # Если строка короткая и содержит DOI
-            processed_references.append(doi)
-        else:
-            processed_references.append(ref)
-    
-    formatted_refs, txt_bytes, doi_found_count, doi_not_found_count = process_references(processed_references, style_config)
+    # Обрабатываем все ссылки напрямую - не нужно дополнительной обработки
+    formatted_refs, txt_bytes, doi_found_count, doi_not_found_count = process_references(references, style_config)
     
     # Создаем новый DOCX документ с отформатированными ссылками
     output_doc = Document()
@@ -691,7 +663,7 @@ def process_docx(input_file, style_config):
         
         if is_error:
             # Показываем оригинальный текст с желтым фоном
-            original_ref = processed_references[i-1] if i-1 < len(processed_references) else str(elements)
+            original_ref = references[i-1] if i-1 < len(references) else str(elements)
             run = para.add_run(original_ref)
             apply_yellow_background(run)
         else:
