@@ -11,6 +11,12 @@ import io
 from tqdm import tqdm
 from docx.oxml import OxmlElement
 import base64
+import asyncio
+import aiohttp
+import concurrent.futures
+from typing import List, Dict, Tuple, Set
+import hashlib
+import time
 
 works = Works()
 
@@ -64,7 +70,16 @@ TRANSLATIONS = {
         'import_file': 'Select style file:',
         'export_success': 'Style exported successfully!',
         'import_success': 'Style imported successfully!',
-        'import_error': 'Error importing style file!'
+        'import_error': 'Error importing style file!',
+        'processing_status': 'Processing references...',
+        'current_reference': 'Current: {}',
+        'processed_stats': 'Processed: {}/{} | Found: {} | Errors: {}',
+        'time_remaining': 'Estimated time remaining: {}',
+        'duplicate_reference': '🔄 Repeated Reference (See #{})',
+        'batch_processing': 'Batch processing DOI...',
+        'extracting_metadata': 'Extracting metadata...',
+        'checking_duplicates': 'Checking for duplicates...',
+        'retrying_failed': 'Retrying failed DOI requests...'
     },
     'ru': {
         'header': '🎨 Конструктор стилей цитирования',
@@ -114,7 +129,16 @@ TRANSLATIONS = {
         'import_file': 'Выберите файл стиля:',
         'export_success': 'Стиль экспортирован успешно!',
         'import_success': 'Стиль импортирован успешно!',
-        'import_error': 'Ошибка импорта файла стиля!'
+        'import_error': 'Ошибка импорта файла стиля!',
+        'processing_status': 'Обработка ссылок...',
+        'current_reference': 'Текущая: {}',
+        'processed_stats': 'Обработано: {}/{} | Найдено: {} | Ошибки: {}',
+        'time_remaining': 'Примерное время до завершения: {}',
+        'duplicate_reference': '🔄 Повторная ссылка (См. #{})',
+        'batch_processing': 'Пакетная обработка DOI...',
+        'extracting_metadata': 'Извлечение метаданных...',
+        'checking_duplicates': 'Проверка на дубликаты...',
+        'retrying_failed': 'Повторная попытка для неудачных DOI...'
     }
 }
 
@@ -216,13 +240,153 @@ def find_doi(reference):
     
     return None
 
-def extract_metadata(doi):
-    """Извлекает метаданные по DOI через Crossref API"""
+def normalize_doi(doi):
+    """Нормализует DOI к стандартному формату"""
+    if not doi:
+        return ""
+    # Убираем префиксы и приводим к нижнему регистру
+    doi = re.sub(r'^(https?://doi\.org/|doi:|DOI:)', '', doi, flags=re.IGNORECASE)
+    return doi.lower().strip()
+
+def generate_reference_hash(metadata):
+    """Генерирует хеш для идентификации дубликатов ссылок"""
+    if not metadata:
+        return None
+    
+    # Создаем строку для хеширования из основных полей
+    hash_string = ""
+    
+    # Авторы (только фамилии в нижнем регистре)
+    if metadata.get('authors'):
+        authors_hash = "|".join(sorted([author.get('family', '').lower() for author in metadata['authors']]))
+        hash_string += authors_hash + "||"
+    
+    # Название (первые 50 символов в нижнем регистре)
+    title = metadata.get('title', '')[:50].lower()
+    hash_string += title + "||"
+    
+    # Журнал и год
+    hash_string += (metadata.get('journal', '') + "||").lower()
+    hash_string += str(metadata.get('year', '')) + "||"
+    
+    # Том и страницы
+    hash_string += metadata.get('volume', '') + "||"
+    hash_string += metadata.get('pages', '') + "||"
+    
+    # DOI (если есть)
+    hash_string += normalize_doi(metadata.get('doi', ''))
+    
+    # Создаем MD5 хеш
+    return hashlib.md5(hash_string.encode('utf-8')).hexdigest()
+
+async def extract_metadata_batch(doi_list, progress_callback=None):
+    """Пакетное извлечение метаданных через Crossref API с повторными попытками"""
+    if not doi_list:
+        return []
+    
+    results = [None] * len(doi_list)  # Инициализируем список результатов
+    session_timeout = aiohttp.ClientTimeout(total=30)
+    
+    # Первая попытка - пакетная обработка
+    async with aiohttp.ClientSession(timeout=session_timeout) as session:
+        tasks = []
+        for i, doi in enumerate(doi_list):
+            task = asyncio.create_task(fetch_metadata_with_retry(session, doi, i))
+            tasks.append(task)
+        
+        # Ограничиваем количество одновременных запросов
+        semaphore = asyncio.Semaphore(5)  # 5 одновременных запросов
+        
+        async def bounded_task(task):
+            async with semaphore:
+                return await task
+        
+        bounded_tasks = [bounded_task(task) for task in tasks]
+        
+        completed = 0
+        for future in asyncio.as_completed(bounded_tasks):
+            try:
+                result = await future
+                if result:
+                    index, metadata = result
+                    results[index] = metadata
+                completed += 1
+                if progress_callback:
+                    progress_callback(completed, len(doi_list))
+            except Exception as e:
+                print(f"Error in batch processing: {e}")
+                completed += 1
+                if progress_callback:
+                    progress_callback(completed, len(doi_list))
+    
+    # Вторая попытка - повтор для неудачных запросов
+    failed_indices = [i for i, result in enumerate(results) if result is None]
+    if failed_indices:
+        print(f"Retrying {len(failed_indices)} failed DOI requests...")
+        
+        if progress_callback:
+            progress_callback(len(doi_list) - len(failed_indices), len(doi_list), retry_mode=True)
+        
+        async with aiohttp.ClientSession(timeout=session_timeout) as session:
+            retry_tasks = []
+            for index in failed_indices:
+                doi = doi_list[index]
+                task = asyncio.create_task(fetch_metadata_with_retry(session, doi, index, is_retry=True))
+                retry_tasks.append(task)
+            
+            retry_semaphore = asyncio.Semaphore(3)  # Меньше одновременных запросов для повторной попытки
+            
+            async def bounded_retry_task(task):
+                async with retry_semaphore:
+                    return await task
+            
+            bounded_retry_tasks = [bounded_retry_task(task) for task in retry_tasks]
+            
+            for future in asyncio.as_completed(bounded_retry_tasks):
+                try:
+                    result = await future
+                    if result:
+                        index, metadata = result
+                        results[index] = metadata
+                    completed = len(doi_list) - len([r for r in results if r is None])
+                    if progress_callback:
+                        progress_callback(completed, len(doi_list), retry_mode=True)
+                except Exception as e:
+                    print(f"Error in retry processing: {e}")
+                    completed = len(doi_list) - len([r for r in results if r is None])
+                    if progress_callback:
+                        progress_callback(completed, len(doi_list), retry_mode=True)
+    
+    return results
+
+async def fetch_metadata_with_retry(session, doi, index, is_retry=False):
+    """Асинхронный запрос метаданных с повторной попыткой при неудаче"""
     try:
-        print(f"Extracting metadata for DOI: {doi}")
-        result = works.doi(doi)
+        url = f"https://api.crossref.org/works/{doi}"
+        async with session.get(url) as response:
+            if response.status == 200:
+                data = await response.json()
+                metadata = parse_metadata(data, doi)
+                if metadata:
+                    return (index, metadata)
+                else:
+                    # Если парсинг не удался, пробуем еще раз для retry
+                    if is_retry:
+                        return None
+                    # Для первого запроса возвращаем None, чтобы попробовать еще раз
+                    return None
+            else:
+                print(f"HTTP {response.status} for DOI: {doi}")
+                return None
+    except Exception as e:
+        print(f"Error fetching metadata for DOI {doi}: {e}")
+        return None
+
+def parse_metadata(data, doi):
+    """Парсит метаданные из ответа Crossref"""
+    try:
+        result = data.get('message', {})
         if not result:
-            print(f"No result for DOI: {doi}")
             return None
         
         authors = result.get('author', [])
@@ -263,10 +427,65 @@ def extract_metadata(doi):
             'issue': issue,
             'pages': pages,
             'article_number': article_number,
-            'doi': doi
+            'doi': doi,
+            'original_doi': doi
         }
         
-        print(f"Successfully extracted metadata: {metadata['title'][:50]}...")
+        return metadata
+        
+    except Exception as e:
+        print(f"Error parsing metadata for DOI {doi}: {e}")
+        return None
+
+def extract_metadata_sync(doi):
+    """Синхронная версия извлечения метаданных (для обратной совместимости)"""
+    try:
+        result = works.doi(doi)
+        if not result:
+            return None
+        
+        authors = result.get('author', [])
+        author_list = []
+        for author in authors:
+            given_name = author.get('given', '')
+            family_name = normalize_name(author.get('family', ''))
+            author_list.append({
+                'given': given_name,
+                'family': family_name
+            })
+        
+        title = ''
+        if 'title' in result and result['title']:
+            title = clean_text(result['title'][0])
+        
+        journal = ''
+        if 'container-title' in result and result['container-title']:
+            journal = result['container-title'][0]
+        
+        year = None
+        if 'published' in result and 'date-parts' in result['published']:
+            date_parts = result['published']['date-parts']
+            if date_parts and date_parts[0]:
+                year = date_parts[0][0]
+        
+        volume = result.get('volume', '')
+        issue = result.get('issue', '')
+        pages = result.get('page', '')
+        article_number = result.get('article-number', '')
+        
+        metadata = {
+            'authors': author_list,
+            'title': title,
+            'journal': journal,
+            'year': year,
+            'volume': volume,
+            'issue': issue,
+            'pages': pages,
+            'article_number': article_number,
+            'doi': doi,
+            'original_doi': doi
+        }
+        
         return metadata
         
     except Exception as e:
@@ -319,7 +538,7 @@ def format_authors(authors, author_format, separator, et_al_limit, use_and_bool,
         
         author_str += formatted_author
         
-        # Добавляем разделитель между авторами
+        # Добавляем разделитель между авторов
         if i < len(authors[:limit]) - 1:
             if i == len(authors[:limit]) - 2 and (use_and_bool or use_ampersand_bool):
                 # Используем "and" или "&" в зависимости от выбора
@@ -574,60 +793,120 @@ def apply_yellow_background(run):
     shd.set(qn('w:fill'), 'FFFF00')
     run._element.get_or_add_rPr().append(shd)
 
-def process_references(references, style_config):
-    """Обрабатывает список ссылок и возвращает отформатированные результаты"""
+def apply_blue_background(run):
+    shd = OxmlElement('w:shd')
+    shd.set(qn('w:fill'), 'E6F3FF')  # Светло-синий цвет
+    run._element.get_or_add_rPr().append(shd)
+
+def find_duplicate_references(formatted_refs):
+    """Находит дубликаты ссылок и возвращает информацию о них"""
+    seen_hashes = {}
+    duplicates_info = {}
+    
+    for i, (elements, is_error, metadata) in enumerate(formatted_refs):
+        if is_error or not metadata:
+            continue
+            
+        ref_hash = generate_reference_hash(metadata)
+        if not ref_hash:
+            continue
+            
+        if ref_hash in seen_hashes:
+            # Найден дубликат
+            original_index = seen_hashes[ref_hash]
+            duplicates_info[i] = original_index
+        else:
+            # Первое вхождение
+            seen_hashes[ref_hash] = i
+    
+    return duplicates_info
+
+def process_references_with_progress(references, style_config, progress_container, status_container):
+    """Обрабатывает список ссылок с отображением прогресса"""
     doi_list = []
     formatted_refs = []
     doi_found_count = 0
     doi_not_found_count = 0
     
-    progress_bar = tqdm(total=len(references), desc=get_text('processing'))
+    # Собираем все DOI для пакетной обработки
+    valid_dois = []
+    reference_doi_map = {}  # Сопоставление индекса ссылки с DOI
     
-    for ref in references:
+    for i, ref in enumerate(references):
         if is_section_header(ref):
             doi_list.append(f"{ref} [SECTION HEADER - SKIPPED]")
             formatted_refs.append((ref, False, None))
-            progress_bar.update(1)
             continue
             
         doi = find_doi(ref)
-        print(f"Processing reference: '{ref}' -> DOI: {doi}")
-        
         if doi:
+            valid_dois.append(doi)
+            reference_doi_map[i] = doi
             doi_list.append(doi)
-            metadata = extract_metadata(doi)
-            
-            if metadata:
-                print(f"Successfully got metadata for DOI: {doi}")
-                formatted_ref, is_error = format_reference(metadata, style_config)
-                formatted_refs.append((formatted_ref, is_error, metadata))
-                
-                if not is_error:
-                    doi_found_count += 1
-                else:
-                    error_message = f"{ref} [ОШИБКА: Не удалось отформатировать ссылку. Проверьте DOI вручную.]" if st.session_state.current_language == 'ru' else f"{ref} [ERROR: Could not format reference. Please check DOI manually.]"
-                    doi_list[-1] = f"{doi}\nПроверьте источник и добавьте DOI вручную." if st.session_state.current_language == 'ru' else f"{doi}\nPlease check this source and insert the DOI manually."
-                    formatted_refs.append((error_message, True, None))
-                    doi_not_found_count += 1
-            else:
-                print(f"Failed to get metadata for DOI: {doi}")
-                error_message = f"{ref} [ОШИБКА: Не удалось получить метаданные по DOI. Проверьте DOI вручную.]" if st.session_state.current_language == 'ru' else f"{ref} [ERROR: Could not get metadata for DOI. Please check DOI manually.]"
-                doi_list[-1] = f"{doi}\nПроверьте источник и добавьте DOI вручную." if st.session_state.current_language == 'ru' else f"{doi}\nPlease check this source and insert the DOI manually."
-                formatted_refs.append((error_message, True, None))
-                doi_not_found_count += 1
         else:
-            print(f"No DOI found in reference: '{ref}'")
-            error_message = f"{ref} [ОШИБКА: DOI не найден. Проверьте ссылку вручную.]" if st.session_state.current_language == 'ru' else f"{ref} [ERROR: DOI not found. Please check reference manually.]"
             doi_list.append(f"{ref}\nПроверьте источник и добавьте DOI вручную." if st.session_state.current_language == 'ru' else f"{ref}\nPlease check this source and insert the DOI manually.")
+            error_message = f"{ref} [ОШИБКА: DOI не найден. Проверьте ссылку вручную.]" if st.session_state.current_language == 'ru' else f"{ref} [ERROR: DOI not found. Please check reference manually.]"
             formatted_refs.append((error_message, True, None))
             doi_not_found_count += 1
-            
-        progress_bar.update(1)
-        
-    progress_bar.close()
     
-    # Выводим статистику
-    st.write(f"**{get_text('statistics').format(doi_found_count, doi_not_found_count)}**")
+    # Пакетная обработка DOI
+    if valid_dois:
+        status_container.info(get_text('batch_processing'))
+        
+        # Создаем прогресс-бар для пакетной обработки
+        batch_progress_bar = progress_container.progress(0)
+        batch_status = status_container.empty()
+        
+        def update_batch_progress(completed, total, retry_mode=False):
+            progress = completed / total
+            batch_progress_bar.progress(progress)
+            if retry_mode:
+                batch_status.text(f"{get_text('retrying_failed')} {completed}/{total}")
+            else:
+                batch_status.text(f"{get_text('extracting_metadata')} {completed}/{total}")
+        
+        # Запускаем асинхронную пакетную обработку с повторными попытками
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            metadata_results = loop.run_until_complete(
+                extract_metadata_batch(valid_dois, update_batch_progress)
+            )
+            loop.close()
+        except Exception as e:
+            # Fallback на синхронную обработку при ошибках
+            metadata_results = []
+            for doi in valid_dois:
+                metadata_results.append(extract_metadata_sync(doi))
+        
+        # Обрабатываем результаты
+        doi_to_metadata = dict(zip(valid_dois, metadata_results))
+        
+        for i, ref in enumerate(references):
+            if i in reference_doi_map:
+                doi = reference_doi_map[i]
+                metadata = doi_to_metadata.get(doi)
+                
+                if metadata:
+                    formatted_ref, is_error = format_reference(metadata, style_config)
+                    formatted_refs.append((formatted_ref, is_error, metadata))
+                    
+                    if not is_error:
+                        doi_found_count += 1
+                    else:
+                        error_message = f"{ref} [ОШИБКА: Не удалось отформатировать ссылку. Проверьте DOI вручную.]" if st.session_state.current_language == 'ru' else f"{ref} [ERROR: Could not format reference. Please check DOI manually.]"
+                        doi_list[doi_list.index(doi)] = f"{doi}\nПроверьте источник и добавьте DOI вручную." if st.session_state.current_language == 'ru' else f"{doi}\nPlease check this source and insert the DOI manually."
+                        formatted_refs.append((error_message, True, None))
+                        doi_not_found_count += 1
+                else:
+                    error_message = f"{ref} [ОШИБКА: Не удалось получить метаданные по DOI. Проверьте DOI вручную.]" if st.session_state.current_language == 'ru' else f"{ref} [ERROR: Could not get metadata for DOI. Please check DOI manually.]"
+                    doi_list[doi_list.index(doi)] = f"{doi}\nПроверьте источник и добавьте DOI вручную." if st.session_state.current_language == 'ru' else f"{doi}\nPlease check this source and insert the DOI manually."
+                    formatted_refs.append((error_message, True, None))
+                    doi_not_found_count += 1
+    
+    # Поиск дубликатов
+    status_container.info(get_text('checking_duplicates'))
+    duplicates_info = find_duplicate_references(formatted_refs)
     
     # Создаем TXT файл со списком DOI
     output_txt_buffer = io.StringIO()
@@ -636,10 +915,10 @@ def process_references(references, style_config):
     output_txt_buffer.seek(0)
     txt_bytes = io.BytesIO(output_txt_buffer.getvalue().encode('utf-8'))
     
-    return formatted_refs, txt_bytes, doi_found_count, doi_not_found_count
+    return formatted_refs, txt_bytes, doi_found_count, doi_not_found_count, duplicates_info
 
-def process_docx(input_file, style_config):
-    """Обрабатывает DOCX файл с ссылками"""
+def process_docx(input_file, style_config, progress_container, status_container):
+    """Обрабатывает DOCX файл с ссылками с прогрессом"""
     doc = Document(input_file)
     references = []
     
@@ -649,8 +928,10 @@ def process_docx(input_file, style_config):
     
     st.write(f"**{get_text('found_references').format(len(references))}**")
     
-    # Обрабатываем все ссылки напрямую
-    formatted_refs, txt_bytes, doi_found_count, doi_not_found_count = process_references(references, style_config)
+    # Обрабатываем все ссылки с прогрессом
+    formatted_refs, txt_bytes, doi_found_count, doi_not_found_count, duplicates_info = process_references_with_progress(
+        references, style_config, progress_container, status_container
+    )
     
     # Создаем новый DOCX документ с отформатированными ссылками
     output_doc = Document()
@@ -660,24 +941,24 @@ def process_docx(input_file, style_config):
     else:
         output_doc.add_heading('Ссылки в пользовательском стиле', level=1)
     
-    for i, (elements, is_error, metadata) in enumerate(formatted_refs, 1):
+    for i, (elements, is_error, metadata) in enumerate(formatted_refs):
         numbering = style_config['numbering_style']
         
         # Формируем префикс нумерации
         if numbering == "No numbering":
             prefix = ""
         elif numbering == "1":
-            prefix = f"{i} "
+            prefix = f"{i + 1} "
         elif numbering == "1.":
-            prefix = f"{i}. "
+            prefix = f"{i + 1}. "
         elif numbering == "1)":
-            prefix = f"{i}) "
+            prefix = f"{i + 1}) "
         elif numbering == "(1)":
-            prefix = f"({i}) "
+            prefix = f"({i + 1}) "
         elif numbering == "[1]":
-            prefix = f"[{i}] "
+            prefix = f"[{i + 1}] "
         else:
-            prefix = f"{i}. "
+            prefix = f"{i + 1}. "
         
         para = output_doc.add_paragraph(prefix)
         
@@ -685,7 +966,33 @@ def process_docx(input_file, style_config):
             # Показываем оригинальный текст с желтым фоном и сообщением об ошибке
             run = para.add_run(str(elements))
             apply_yellow_background(run)
+        elif i in duplicates_info:
+            # Дубликат - выделяем синим и добавляем пометку
+            original_index = duplicates_info[i] + 1  # +1 потому что нумерация с 1
+            duplicate_note = get_text('duplicate_reference').format(original_index)
+            
+            if isinstance(elements, str):
+                run = para.add_run(elements)
+                apply_blue_background(run)
+                para.add_run(f" - {duplicate_note}").italic = True
+            else:
+                for j, (value, italic, bold, separator, is_doi_hyperlink, doi_value) in enumerate(elements):
+                    if is_doi_hyperlink and doi_value:
+                        add_hyperlink(para, value, f"https://doi.org/{doi_value}")
+                    else:
+                        run = para.add_run(value)
+                        if italic:
+                            run.font.italic = True
+                        if bold:
+                            run.font.bold = True
+                        apply_blue_background(run)
+                    
+                    if separator and j < len(elements) - 1:
+                        para.add_run(separator)
+                
+                para.add_run(f" - {duplicate_note}").italic = True
         else:
+            # Обычная ссылка
             if metadata is None:
                 run = para.add_run(str(elements))
                 run.font.italic = True
@@ -713,7 +1020,7 @@ def process_docx(input_file, style_config):
     output_doc.save(output_doc_buffer)
     output_doc_buffer.seek(0)
     
-    return formatted_refs, txt_bytes, output_doc_buffer
+    return formatted_refs, txt_bytes, output_doc_buffer, doi_found_count, doi_not_found_count
 
 def export_style(style_config, file_name):
     """Экспорт стиля в JSON файл"""
@@ -808,6 +1115,8 @@ def main():
         .stRadio > label { font-size: 0.65rem; }
         .stDownloadButton > button { font-size: 0.7rem; padding: 0.05rem; margin: 0.02rem; }
         .element-row { margin: 0.01rem; padding: 0.01rem; }
+        .processing-header { font-size: 0.8rem; font-weight: bold; margin-bottom: 0.1rem; }
+        .processing-status { font-size: 0.7rem; margin-bottom: 0.05rem; }
         </style>
     """, unsafe_allow_html=True)
 
@@ -1204,130 +1513,175 @@ def main():
                 st.error(get_text('error_select_element'))
                 return
                 
-            if input_method == 'DOCX':
-                if not uploaded_file:
-                    st.error(get_text('upload_file'))
-                    return
-                
-                with st.spinner(get_text('processing')):
-                    formatted_refs, txt_bytes, output_doc_buffer = process_docx(uploaded_file, style_config)
-            else:
-                if not references_input.strip():
-                    st.error(get_text('enter_references_error'))
-                    return
-                
-                references = [ref.strip() for ref in references_input.split('\n') if ref.strip()]
-                st.write(f"**{get_text('found_references_text').format(len(references))}**")
-                
-                with st.spinner(get_text('processing')):
-                    formatted_refs, txt_bytes, _, _ = process_references(references, style_config)
+            # Создаем контейнеры для прогресса
+            progress_container = st.empty()
+            status_container = st.empty()
+            
+            try:
+                if input_method == 'DOCX':
+                    if not uploaded_file:
+                        st.error(get_text('upload_file'))
+                        return
                     
-                    # Создаем DOCX документ для текстового ввода
-                    output_doc = Document()
+                    with st.spinner(get_text('processing')):
+                        formatted_refs, txt_bytes, output_doc_buffer, doi_found_count, doi_not_found_count = process_docx(
+                            uploaded_file, style_config, progress_container, status_container
+                        )
+                else:
+                    if not references_input.strip():
+                        st.error(get_text('enter_references_error'))
+                        return
                     
-                    if st.session_state.current_language == 'en':
-                        output_doc.add_heading('References in Custom Style', level=1)
-                    else:
-                        output_doc.add_heading('Ссылки в пользовательском стиле', level=1)
+                    references = [ref.strip() for ref in references_input.split('\n') if ref.strip()]
+                    st.write(f"**{get_text('found_references_text').format(len(references))}**")
                     
-                    for i, (elements, is_error, metadata) in enumerate(formatted_refs, 1):
+                    with st.spinner(get_text('processing')):
+                        formatted_refs, txt_bytes, doi_found_count, doi_not_found_count, duplicates_info = process_references_with_progress(
+                            references, style_config, progress_container, status_container
+                        )
+                        
+                        # Создаем DOCX документ для текстового ввода
+                        output_doc = Document()
+                        
+                        if st.session_state.current_language == 'en':
+                            output_doc.add_heading('References in Custom Style', level=1)
+                        else:
+                            output_doc.add_heading('Ссылки в пользовательском стиле', level=1)
+                        
+                        for i, (elements, is_error, metadata) in enumerate(formatted_refs):
+                            numbering = style_config['numbering_style']
+                            
+                            if numbering == "No numbering":
+                                prefix = ""
+                            elif numbering == "1":
+                                prefix = f"{i + 1} "
+                            elif numbering == "1.":
+                                prefix = f"{i + 1}. "
+                            elif numbering == "1)":
+                                prefix = f"{i + 1}) "
+                            elif numbering == "(1)":
+                                prefix = f"({i + 1}) "
+                            elif numbering == "[1]":
+                                prefix = f"[{i + 1}] "
+                            else:
+                                prefix = f"{i + 1}. "
+                            
+                            para = output_doc.add_paragraph(prefix)
+                            
+                            if is_error:
+                                run = para.add_run(str(elements))
+                                apply_yellow_background(run)
+                            elif i in duplicates_info:
+                                # Дубликат - выделяем синим и добавляем пометку
+                                original_index = duplicates_info[i] + 1
+                                duplicate_note = get_text('duplicate_reference').format(original_index)
+                                
+                                if isinstance(elements, str):
+                                    run = para.add_run(elements)
+                                    apply_blue_background(run)
+                                    para.add_run(f" - {duplicate_note}").italic = True
+                                else:
+                                    for j, (value, italic, bold, separator, is_doi_hyperlink, doi_value) in enumerate(elements):
+                                        if is_doi_hyperlink and doi_value:
+                                            add_hyperlink(para, value, f"https://doi.org/{doi_value}")
+                                        else:
+                                            run = para.add_run(value)
+                                            if italic:
+                                                run.font.italic = True
+                                            if bold:
+                                                run.font.bold = True
+                                            apply_blue_background(run)
+                                        
+                                        if separator and j < len(elements) - 1:
+                                            para.add_run(separator)
+                                    
+                                    para.add_run(f" - {duplicate_note}").italic = True
+                            else:
+                                for j, (value, italic, bold, separator, is_doi_hyperlink, doi_value) in enumerate(elements):
+                                    if is_doi_hyperlink and doi_value:
+                                        add_hyperlink(para, value, f"https://doi.org/{doi_value}")
+                                    else:
+                                        run = para.add_run(value)
+                                        if italic:
+                                            run.font.italic = True
+                                        if bold:
+                                            run.font.bold = True
+                                    
+                                    if separator and j < len(elements) - 1:
+                                        para.add_run(separator)
+                                
+                                if style_config['final_punctuation'] and not is_error:
+                                    para.add_run(".")
+                        
+                        output_doc_buffer = io.BytesIO()
+                        output_doc.save(output_doc_buffer)
+                        output_doc_buffer.seek(0)
+
+                # Очищаем контейнеры прогресса
+                progress_container.empty()
+                status_container.empty()
+                
+                # Показываем статистику
+                st.write(f"**{get_text('statistics').format(doi_found_count, doi_not_found_count)}**")
+                
+                # Подготовка данных для вывода
+                if output_method == 'Text' if st.session_state.current_language == 'en' else 'Текст':
+                    output_text_value = ""
+                    for i, (elements, is_error, metadata) in enumerate(formatted_refs):
                         numbering = style_config['numbering_style']
                         
                         if numbering == "No numbering":
                             prefix = ""
                         elif numbering == "1":
-                            prefix = f"{i} "
+                            prefix = f"{i + 1} "
                         elif numbering == "1.":
-                            prefix = f"{i}. "
+                            prefix = f"{i + 1}. "
                         elif numbering == "1)":
-                            prefix = f"{i}) "
+                            prefix = f"{i + 1}) "
                         elif numbering == "(1)":
-                            prefix = f"({i}) "
+                            prefix = f"({i + 1}) "
                         elif numbering == "[1]":
-                            prefix = f"[{i}] "
+                            prefix = f"[{i + 1}] "
                         else:
-                            prefix = f"{i}. "
-                        
-                        para = output_doc.add_paragraph(prefix)
+                            prefix = f"{i + 1}. "
                         
                         if is_error:
-                            run = para.add_run(str(elements))
-                            apply_yellow_background(run)
-                        else:
-                            for j, (value, italic, bold, separator, is_doi_hyperlink, doi_value) in enumerate(elements):
-                                if is_doi_hyperlink and doi_value:
-                                    add_hyperlink(para, value, f"https://doi.org/{doi_value}")
-                                else:
-                                    run = para.add_run(value)
-                                    if italic:
-                                        run.font.italic = True
-                                    if bold:
-                                        run.font.bold = True
-                                
-                                if separator and j < len(elements) - 1:
-                                    para.add_run(separator)
-                            
-                            if style_config['final_punctuation'] and not is_error:
-                                para.add_run(".")
-                    
-                    output_doc_buffer = io.BytesIO()
-                    output_doc.save(output_doc_buffer)
-                    output_doc_buffer.seek(0)
-
-            # Подготовка данных для вывода
-            if output_method == 'Text' if st.session_state.current_language == 'en' else 'Текст':
-                output_text_value = ""
-                for i, (elements, is_error, metadata) in enumerate(formatted_refs, 1):
-                    numbering = style_config['numbering_style']
-                    
-                    if numbering == "No numbering":
-                        prefix = ""
-                    elif numbering == "1":
-                        prefix = f"{i} "
-                    elif numbering == "1.":
-                        prefix = f"{i}. "
-                    elif numbering == "1)":
-                        prefix = f"{i}) "
-                    elif numbering == "(1)":
-                        prefix = f"({i}) "
-                    elif numbering == "[1]":
-                        prefix = f"[{i}] "
-                    else:
-                        prefix = f"{i}. "
-                    
-                    if is_error:
-                        output_text_value += f"{prefix}{elements}\n"
-                    else:
-                        if isinstance(elements, str):
                             output_text_value += f"{prefix}{elements}\n"
                         else:
-                            ref_str = ""
-                            for j, element_data in enumerate(elements):
-                                if len(element_data) == 6:
-                                    value, _, _, separator, _, _ = element_data
-                                    ref_str += value
-                                    if separator and j < len(elements) - 1:
-                                        ref_str += separator
-                                else:
-                                    ref_str += str(element_data)
-                            
-                            if style_config['final_punctuation'] and not is_error:
-                                ref_str = ref_str.rstrip(',.') + "."
-                            
-                            output_text_value += f"{prefix}{ref_str}\n"
-                
-                # Сохраняем данные для отображения
-                st.session_state.output_text_value = output_text_value
-                st.session_state.show_results = True
-            else:
-                st.session_state.output_text_value = ""
-                st.session_state.show_results = False
+                            if isinstance(elements, str):
+                                output_text_value += f"{prefix}{elements}\n"
+                            else:
+                                ref_str = ""
+                                for j, element_data in enumerate(elements):
+                                    if len(element_data) == 6:
+                                        value, _, _, separator, _, _ = element_data
+                                        ref_str += value
+                                        if separator and j < len(elements) - 1:
+                                            ref_str += separator
+                                    else:
+                                        ref_str += str(element_data)
+                                
+                                if style_config['final_punctuation'] and not is_error:
+                                    ref_str = ref_str.rstrip(',.') + "."
+                                
+                                output_text_value += f"{prefix}{ref_str}\n"
+                    
+                    # Сохраняем данные для отображения
+                    st.session_state.output_text_value = output_text_value
+                    st.session_state.show_results = True
+                else:
+                    st.session_state.output_text_value = ""
+                    st.session_state.show_results = False
 
-            # Сохраняем данные для скачивания
-            st.session_state.download_data = {
-                'txt_bytes': txt_bytes,
-                'output_doc_buffer': output_doc_buffer if output_method == 'DOCX' else None
-            }
+                # Сохраняем данные для скачивания
+                st.session_state.download_data = {
+                    'txt_bytes': txt_bytes,
+                    'output_doc_buffer': output_doc_buffer if output_method == 'DOCX' else None
+                }
+                
+            except Exception as e:
+                st.error(f"Processing error: {str(e)}")
+                return
             
             st.rerun()
 
