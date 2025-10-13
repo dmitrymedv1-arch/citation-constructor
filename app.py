@@ -79,7 +79,12 @@ TRANSLATIONS = {
         'extracting_metadata': 'Extracting metadata...',
         'checking_duplicates': 'Checking for duplicates...',
         'retrying_failed': 'Retrying failed DOI requests...',
-        'bibliographic_search': 'Searching by bibliographic data...'
+        'bibliographic_search': 'Searching by bibliographic data...',
+        'style_presets': 'Style Presets',
+        'gost_button': 'GOST',
+        'acs_button': 'ACS (MDPI)',
+        'rsc_button': 'RSC',
+        'style_preset_tooltip': 'Here are some styles that are maintained within individual publishers. For major publishers (Elsevier, Springer Nature, Wiley), the style varies from journal to journal. To create (or reformat) references for a specific journal, we recommend using the citation constructor.'
     },
     'ru': {
         'header': '🎨 Конструктор стилей цитирования',
@@ -139,13 +144,18 @@ TRANSLATIONS = {
         'extracting_metadata': 'Извлечение метаданных...',
         'checking_duplicates': 'Проверка на дубликаты...',
         'retrying_failed': 'Повторная попытка для неудачных DOI...',
-        'bibliographic_search': 'Поиск по библиографическим данным...'
+        'bibliographic_search': 'Поиск по библиографическим данным...',
+        'style_presets': 'Готовые стили',
+        'gost_button': 'ГОСТ',
+        'acs_button': 'ACS (MDPI)',
+        'rsc_button': 'RSC',
+        'style_preset_tooltip': 'Здесь указаны некоторые стили, которые сохраняются в пределах одного издательства. Для ряда крупных издательств (Esevier, Springer Nature, Wiley) стиль отличается от журнала к журналу. Для формирования (или переформатирования) ссылок для конкретного журнала предлагаем воспользоваться конструктором ссылок.'
     }
 }
 
 # Хранение текущего языка
 if 'current_language' not in st.session_state:
-    st.session_state.current_language = 'ru'
+    st.session_state.current_language = 'en'  # Changed from 'ru' to 'en'
 
 # Хранение импортированного стиля и флага применения
 if 'imported_style' not in st.session_state:
@@ -543,6 +553,14 @@ def format_reference(metadata, style_config, for_preview=False):
     if style_config.get('gost_style', False):
         return format_gost_reference(metadata, style_config, for_preview)
     
+    # Проверяем, включен ли стиль ACS
+    if style_config.get('acs_style', False):
+        return format_acs_reference(metadata, style_config, for_preview)
+    
+    # Проверяем, включен ли стиль RSC
+    if style_config.get('rsc_style', False):
+        return format_rsc_reference(metadata, style_config, for_preview)
+    
     elements = []
     
     for i, (element, config) in enumerate(style_config['elements']):
@@ -711,6 +729,158 @@ def format_gost_reference(metadata, style_config, for_preview=False):
         
         return elements, False
 
+def format_acs_reference(metadata, style_config, for_preview=False):
+    """Форматирование ссылки в стиле ACS (MDPI)"""
+    if not metadata:
+        error_message = "Ошибка: Не удалось отформатировать ссылку." if st.session_state.current_language == 'ru' else "Error: Could not format the reference."
+        return (error_message, True)
+    
+    # Форматируем авторов в стиле ACS: Surname, I.I.; Surname, I.I.; ...
+    authors_str = ""
+    for i, author in enumerate(metadata['authors']):
+        given = author['given']
+        family = author['family']
+        
+        # Извлекаем инициалы
+        initials = given.split()[:2]
+        first_initial = initials[0][0] if initials else ''
+        second_initial = initials[1][0].upper() if len(initials) > 1 else ''
+        
+        # Форматируем автора: Surname, I.I.
+        if second_initial:
+            author_str = f"{family}, {first_initial}.{second_initial}."
+        else:
+            author_str = f"{family}, {first_initial}."
+        
+        authors_str += author_str
+        
+        # Добавляем разделитель
+        if i < len(metadata['authors']) - 1:
+            authors_str += "; "
+    
+    # Форматируем страницы
+    pages = metadata['pages']
+    article_number = metadata['article_number']
+    
+    if pages:
+        if '-' in pages:
+            start_page, end_page = pages.split('-')
+            start_page = start_page.strip()
+            end_page = end_page.strip()
+            # Используем короткий формат для конечной страницы если возможно
+            if len(start_page) == len(end_page) and start_page[:-1] == end_page[:-1]:
+                pages_formatted = f"{start_page}−{end_page[-1]}"
+            else:
+                pages_formatted = f"{start_page}−{end_page}"
+        else:
+            pages_formatted = pages
+    elif article_number:
+        pages_formatted = article_number
+    else:
+        pages_formatted = ""
+    
+    # Собираем ссылку ACS
+    acs_ref = f"{authors_str} {metadata['title']}. {metadata['journal']}. {metadata['year']}, {metadata['volume']}, {pages_formatted}."
+    
+    if for_preview:
+        return acs_ref, False
+    else:
+        # Для реального документа разбиваем на элементы с форматированием
+        elements = []
+        
+        # Авторы
+        elements.append((authors_str, False, False, " ", False, None))
+        
+        # Название
+        elements.append((metadata['title'], False, False, ". ", False, None))
+        
+        # Журнал (курсив)
+        elements.append((metadata['journal'], True, False, ". ", False, None))
+        
+        # Год (жирный)
+        elements.append((str(metadata['year']), False, True, ", ", False, None))
+        
+        # Том (курсив)
+        elements.append((metadata['volume'], True, False, ", ", False, None))
+        
+        # Страницы
+        elements.append((pages_formatted, False, False, ".", False, None))
+        
+        return elements, False
+
+def format_rsc_reference(metadata, style_config, for_preview=False):
+    """Форматирование ссылки в стиле RSC"""
+    if not metadata:
+        error_message = "Ошибка: Не удалось отформатировать ссылку." if st.session_state.current_language == 'ru' else "Error: Could not format the reference."
+        return (error_message, True)
+    
+    # Форматируем авторов в стиле RSC: I.I. Surname, I.I. Surname, ... and I.I. Surname
+    authors_str = ""
+    for i, author in enumerate(metadata['authors']):
+        given = author['given']
+        family = author['family']
+        
+        # Извлекаем инициалы
+        initials = given.split()[:2]
+        first_initial = initials[0][0] if initials else ''
+        second_initial = initials[1][0].upper() if len(initials) > 1 else ''
+        
+        # Форматируем автора: I.I. Surname
+        if second_initial:
+            author_str = f"{first_initial}.{second_initial}. {family}"
+        else:
+            author_str = f"{first_initial}. {family}"
+        
+        authors_str += author_str
+        
+        # Добавляем разделитель
+        if i < len(metadata['authors']) - 1:
+            if i == len(metadata['authors']) - 2:
+                authors_str += " and "
+            else:
+                authors_str += ", "
+    
+    # Форматируем страницы
+    pages = metadata['pages']
+    article_number = metadata['article_number']
+    
+    if pages:
+        if '-' in pages:
+            start_page, end_page = pages.split('-')
+            pages_formatted = start_page.strip()
+        else:
+            pages_formatted = pages.strip()
+    elif article_number:
+        pages_formatted = article_number
+    else:
+        pages_formatted = ""
+    
+    # Собираем ссылку RSC
+    rsc_ref = f"{authors_str}, {metadata['journal']}, {metadata['year']}, {metadata['volume']}, {pages_formatted}."
+    
+    if for_preview:
+        return rsc_ref, False
+    else:
+        # Для реального документа разбиваем на элементы с форматированием
+        elements = []
+        
+        # Авторы
+        elements.append((authors_str, False, False, ", ", False, None))
+        
+        # Журнал (курсив)
+        elements.append((metadata['journal'], True, False, ", ", False, None))
+        
+        # Год
+        elements.append((str(metadata['year']), False, False, ", ", False, None))
+        
+        # Том (жирный)
+        elements.append((metadata['volume'], False, True, ", ", False, None))
+        
+        # Страницы
+        elements.append((pages_formatted, False, False, ".", False, None))
+        
+        return elements, False
+
 def apply_yellow_background(run):
     shd = OxmlElement('w:shd')
     shd.set(qn('w:fill'), 'FFFF00')
@@ -776,7 +946,7 @@ def process_references_with_progress(references, style_config, progress_containe
     if valid_dois:
         status_container.info(get_text('batch_processing'))
         
-        # Создаем прогресс-бар для пакетной обработки
+        # Создаем прогресс-бар для пакетной обработка
         batch_progress_bar = progress_container.progress(0)
         batch_status = status_container.empty()
         
@@ -988,6 +1158,8 @@ def apply_imported_style(imported_style):
     st.session_state.page = imported_style.get('page_format', "122–128")
     st.session_state.punct = imported_style.get('final_punctuation', "")
     st.session_state.gost_style = imported_style.get('gost_style', False)
+    st.session_state.acs_style = imported_style.get('acs_style', False)
+    st.session_state.rsc_style = imported_style.get('rsc_style', False)
     
     # Применяем элементы
     elements = imported_style.get('elements', [])
@@ -1039,12 +1211,12 @@ def main():
         st.rerun()
 
     # Переключение языка
-    language_options = [('Русский', 'ru'), ('English', 'en')]
+    language_options = [('English', 'en'), ('Русский', 'ru')]  # Changed order - English first
     selected_language = st.selectbox(
         get_text('language'), 
         language_options, 
         format_func=lambda x: x[0], 
-        index=0 if st.session_state.current_language == 'ru' else 1,
+        index=0 if st.session_state.current_language == 'en' else 1,  # Changed index
         key="language_selector"
     )
     st.session_state.current_language = selected_language[1]
@@ -1057,32 +1229,102 @@ def main():
     with col1:
         st.subheader(get_text('general_settings'))
         
-        # Кнопка применения ГОСТ стиля
-        if st.button(get_text('gost_style'), use_container_width=True, key="gost_button"):
-            # Устанавливаем конфигурацию стиля ГОСТ
-            st.session_state.num = "1."
-            st.session_state.auth = "Smith, A.A."
-            st.session_state.sep = ", "
-            st.session_state.etal = 0
-            st.session_state.use_and_checkbox = False
-            st.session_state.use_ampersand_checkbox = False
-            st.session_state.doi = "https://dx.doi.org/10.10/xxx"
-            st.session_state.doilink = True
-            st.session_state.page = "122–128"
-            st.session_state.punct = ""
-            
-            # Очищаем все конфигурации элементов
-            for i in range(8):
-                st.session_state[f"el{i}"] = ""
-                st.session_state[f"it{i}"] = False
-                st.session_state[f"bd{i}"] = False
-                st.session_state[f"pr{i}"] = False
-                st.session_state[f"sp{i}"] = ". "
-            
-            # Устанавливаем флаг стиля ГОСТ
-            st.session_state.gost_style = True
-            st.session_state.style_applied = True
-            st.rerun()
+        # Стили пресеты с тултипом
+        st.markdown(f"**{get_text('style_presets}**")
+        
+        # Добавляем тултип с информацией о стилях
+        with st.expander("ℹ️", help=get_text('style_preset_tooltip')):
+            st.markdown(f"<small>{get_text('style_preset_tooltip')}</small>", unsafe_allow_html=True)
+        
+        # Кнопки стилей в колонках
+        col_gost, col_acs, col_rsc = st.columns(3)
+        
+        with col_gost:
+            if st.button(get_text('gost_button'), use_container_width=True, key="gost_button"):
+                # Устанавливаем конфигурацию стиля ГОСТ
+                st.session_state.num = "1."
+                st.session_state.auth = "Smith, A.A."
+                st.session_state.sep = ", "
+                st.session_state.etal = 0
+                st.session_state.use_and_checkbox = False
+                st.session_state.use_ampersand_checkbox = False
+                st.session_state.doi = "https://dx.doi.org/10.10/xxx"
+                st.session_state.doilink = True
+                st.session_state.page = "122–128"
+                st.session_state.punct = ""
+                
+                # Очищаем все конфигурации элементов
+                for i in range(8):
+                    st.session_state[f"el{i}"] = ""
+                    st.session_state[f"it{i}"] = False
+                    st.session_state[f"bd{i}"] = False
+                    st.session_state[f"pr{i}"] = False
+                    st.session_state[f"sp{i}"] = ". "
+                
+                # Устанавливаем флаг стиля ГОСТ
+                st.session_state.gost_style = True
+                st.session_state.acs_style = False
+                st.session_state.rsc_style = False
+                st.session_state.style_applied = True
+                st.rerun()
+        
+        with col_acs:
+            if st.button(get_text('acs_button'), use_container_width=True, key="acs_button"):
+                # Устанавливаем конфигурацию стиля ACS
+                st.session_state.num = "1."
+                st.session_state.auth = "Smith, A.A."
+                st.session_state.sep = "; "
+                st.session_state.etal = 0
+                st.session_state.use_and_checkbox = False
+                st.session_state.use_ampersand_checkbox = False
+                st.session_state.doi = "10.10/xxx"
+                st.session_state.doilink = True
+                st.session_state.page = "122−128"
+                st.session_state.punct = "."
+                
+                # Очищаем все конфигурации элементов
+                for i in range(8):
+                    st.session_state[f"el{i}"] = ""
+                    st.session_state[f"it{i}"] = False
+                    st.session_state[f"bd{i}"] = False
+                    st.session_state[f"pr{i}"] = False
+                    st.session_state[f"sp{i}"] = ". "
+                
+                # Устанавливаем флаг стиля ACS
+                st.session_state.gost_style = False
+                st.session_state.acs_style = True
+                st.session_state.rsc_style = False
+                st.session_state.style_applied = True
+                st.rerun()
+        
+        with col_rsc:
+            if st.button(get_text('rsc_button'), use_container_width=True, key="rsc_button"):
+                # Устанавливаем конфигурацию стиля RSC
+                st.session_state.num = "1."
+                st.session_state.auth = "A.A. Smith"
+                st.session_state.sep = ", "
+                st.session_state.etal = 0
+                st.session_state.use_and_checkbox = True
+                st.session_state.use_ampersand_checkbox = False
+                st.session_state.doi = "10.10/xxx"
+                st.session_state.doilink = True
+                st.session_state.page = "122"
+                st.session_state.punct = "."
+                
+                # Очищаем все конфигурации элементов
+                for i in range(8):
+                    st.session_state[f"el{i}"] = ""
+                    st.session_state[f"it{i}"] = False
+                    st.session_state[f"bd{i}"] = False
+                    st.session_state[f"pr{i}"] = False
+                    st.session_state[f"sp{i}"] = ". "
+                
+                # Устанавливаем флаг стиля RSC
+                st.session_state.gost_style = False
+                st.session_state.acs_style = False
+                st.session_state.rsc_style = True
+                st.session_state.style_applied = True
+                st.rerun()
         
         # Инициализация значений по умолчанию
         default_values = {
@@ -1096,7 +1338,9 @@ def main():
             'doilink': True,
             'page': "122–128",
             'punct': "",
-            'gost_style': False
+            'gost_style': False,
+            'acs_style': False,
+            'rsc_style': False
         }
         
         for key, default in default_values.items():
@@ -1278,7 +1522,9 @@ def main():
             'final_punctuation': st.session_state.punct,
             'numbering_style': st.session_state.num,
             'elements': element_configs,
-            'gost_style': st.session_state.get('gost_style', False)
+            'gost_style': st.session_state.get('gost_style', False),
+            'acs_style': st.session_state.get('acs_style', False),
+            'rsc_style': st.session_state.get('rsc_style', False)
         }
         
         # Показываем пример форматирования
@@ -1305,6 +1551,92 @@ def main():
                 'doi': '10.1000/xyz123'
             }
             preview_ref, _ = format_gost_reference(preview_metadata, style_config, for_preview=True)
+            
+            numbering = style_config['numbering_style']
+            if numbering == "No numbering":
+                preview_ref_with_numbering = preview_ref
+            else:
+                if numbering == "1":
+                    preview_ref_with_numbering = f"1 {preview_ref}"
+                elif numbering == "1.":
+                    preview_ref_with_numbering = f"1. {preview_ref}"
+                elif numbering == "1)":
+                    preview_ref_with_numbering = f"1) {preview_ref}"
+                elif numbering == "(1)":
+                    preview_ref_with_numbering = f"(1) {preview_ref}"
+                elif numbering == "[1]":
+                    preview_ref_with_numbering = f"[1] {preview_ref}"
+                else:
+                    preview_ref_with_numbering = f"1. {preview_ref}"
+            
+            st.markdown(f"<small>{get_text('example')} {preview_ref_with_numbering}</small>", unsafe_allow_html=True)
+        
+        elif st.session_state.get('acs_style', False):
+            # Пример для стиля ACS
+            preview_metadata = {
+                'authors': [
+                    {
+                        'given': 'John A.', 
+                        'family': 'Smith'
+                    }, 
+                    {
+                        'given': 'Alice B.', 
+                        'family': 'Doe'
+                    }
+                ],
+                'title': 'Article Title',
+                'journal': 'Journal Name',
+                'year': 2020,
+                'volume': '15',
+                'issue': '3',
+                'pages': '122-128',
+                'article_number': '',
+                'doi': '10.1000/xyz123'
+            }
+            preview_ref, _ = format_acs_reference(preview_metadata, style_config, for_preview=True)
+            
+            numbering = style_config['numbering_style']
+            if numbering == "No numbering":
+                preview_ref_with_numbering = preview_ref
+            else:
+                if numbering == "1":
+                    preview_ref_with_numbering = f"1 {preview_ref}"
+                elif numbering == "1.":
+                    preview_ref_with_numbering = f"1. {preview_ref}"
+                elif numbering == "1)":
+                    preview_ref_with_numbering = f"1) {preview_ref}"
+                elif numbering == "(1)":
+                    preview_ref_with_numbering = f"(1) {preview_ref}"
+                elif numbering == "[1]":
+                    preview_ref_with_numbering = f"[1] {preview_ref}"
+                else:
+                    preview_ref_with_numbering = f"1. {preview_ref}"
+            
+            st.markdown(f"<small>{get_text('example')} {preview_ref_with_numbering}</small>", unsafe_allow_html=True)
+        
+        elif st.session_state.get('rsc_style', False):
+            # Пример для стиля RSC
+            preview_metadata = {
+                'authors': [
+                    {
+                        'given': 'John A.', 
+                        'family': 'Smith'
+                    }, 
+                    {
+                        'given': 'Alice B.', 
+                        'family': 'Doe'
+                    }
+                ],
+                'title': 'Article Title',
+                'journal': 'Journal Name',
+                'year': 2020,
+                'volume': '15',
+                'issue': '3',
+                'pages': '122-128',
+                'article_number': '',
+                'doi': '10.1000/xyz123'
+            }
+            preview_ref, _ = format_rsc_reference(preview_metadata, style_config, for_preview=True)
             
             numbering = style_config['numbering_style']
             if numbering == "No numbering":
@@ -1421,7 +1753,7 @@ def main():
 
         # Кнопка обработки
         if st.button(get_text('process'), use_container_width=True, key="process_button"):
-            if not style_config['elements'] and not style_config.get('gost_style', False):
+            if not style_config['elements'] and not style_config.get('gost_style', False) and not style_config.get('acs_style', False) and not style_config.get('rsc_style', False):
                 st.error(get_text('error_select_element'))
                 return
                 
@@ -1640,7 +1972,9 @@ def main():
             'final_punctuation': st.session_state.punct,
             'numbering_style': st.session_state.num,
             'elements': element_configs,
-            'gost_style': st.session_state.get('gost_style', False)
+            'gost_style': st.session_state.get('gost_style', False),
+            'acs_style': st.session_state.get('acs_style', False),
+            'rsc_style': st.session_state.get('rsc_style', False)
         }
         
         # Кнопка экспорта
