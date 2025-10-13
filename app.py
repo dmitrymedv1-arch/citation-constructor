@@ -1230,7 +1230,7 @@ def main():
         st.subheader(get_text('general_settings'))
         
         # Стили пресеты с тултипом
-        st.markdown(f"**{get_text('style_presets'}**")
+        st.markdown(f"**{get_text('style_presets')}**")
         
         # Добавляем тултип с информацией о стилях
         with st.expander("ℹ️", help=get_text('style_preset_tooltip')):
@@ -2008,4 +2008,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
