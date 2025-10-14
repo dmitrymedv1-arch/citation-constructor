@@ -84,7 +84,7 @@ TRANSLATIONS = {
         'gost_button': 'GOST',
         'acs_button': 'ACS (MDPI)',
         'rsc_button': 'RSC',
-        'style_preset_tooltip': 'Here are some styles that are maintained within individual publishers. For major publishers (Elsevier, Springer Nature, Wiley), the style varies from journal to journal. To create (or reformat) references for a specific journal, we recommend using the citation constructor.'
+        'style_preset_tooltip': 'Here are some styles maintained by individual publishers. For major publishers (Elsevier, Springer Nature, and Wiley), styles vary from journal to journal. To create (or reformat) references for a specific journal, use the Citation Style Constructor.'
     },
     'ru': {
         'header': '🎨 Конструктор стилей цитирования',
@@ -488,28 +488,38 @@ def format_authors(authors, author_format, separator, et_al_limit, use_and_bool,
     
     return author_str.strip()
 
-def format_pages(pages, article_number, page_format):
+def format_pages(pages, article_number, page_format, style_type="default"):
+    """Форматирует страницы в зависимости от стиля"""
     if pages:
-        if '-' not in pages:
-            return pages
-        
-        start, end = pages.split('-')
-        start = start.strip()
-        end = end.strip()
-        
-        if page_format == "122 - 128":
-            return f"{start} - {end}"
-        elif page_format == "122-128":
-            return f"{start}-{end}"
-        elif page_format == "122 – 128":
-            return f"{start} – {end}"
-        elif page_format == "122–128":
-            return f"{start}–{end}"
-        elif page_format == "122–8":
-            i = 0
-            while i < len(start) and i < len(end) and start[i] == end[i]:
-                i += 1
-            return f"{start}–{end[i:]}"
+        if style_type == "rsc":
+            # Для RSC стиля берем только первую страницу
+            if '-' in pages:
+                first_page = pages.split('-')[0].strip()
+                return first_page
+            else:
+                return pages.strip()
+        else:
+            # Для других стилей используем стандартное форматирование
+            if '-' not in pages:
+                return pages
+            
+            start, end = pages.split('-')
+            start = start.strip()
+            end = end.strip()
+            
+            if page_format == "122 - 128":
+                return f"{start} - {end}"
+            elif page_format == "122-128":
+                return f"{start}-{end}"
+            elif page_format == "122 – 128":
+                return f"{start} – {end}"
+            elif page_format == "122–128":
+                return f"{start}–{end}"
+            elif page_format == "122–8":
+                i = 0
+                while i < len(start) and i < len(end) and start[i] == end[i]:
+                    i += 1
+                return f"{start}–{end[i:]}"
     
     # Если страниц нет, используем номер статьи
     return article_number
@@ -840,14 +850,15 @@ def format_rsc_reference(metadata, style_config, for_preview=False):
             else:
                 authors_str += ", "
     
-    # Форматируем страницы
+    # Форматируем страницы - для RSC берем только первую страницу
     pages = metadata['pages']
     article_number = metadata['article_number']
     
     if pages:
+        # Для RSC стиля берем только первую страницу
         if '-' in pages:
-            start_page, end_page = pages.split('-')
-            pages_formatted = start_page.strip()
+            first_page = pages.split('-')[0].strip()
+            pages_formatted = first_page
         else:
             pages_formatted = pages.strip()
     elif article_number:
@@ -876,7 +887,7 @@ def format_rsc_reference(metadata, style_config, for_preview=False):
         # Том (жирный)
         elements.append((metadata['volume'], False, True, ", ", False, None))
         
-        # Страницы
+        # Страницы (только первая страница)
         elements.append((pages_formatted, False, False, ".", False, None))
         
         return elements, False
@@ -1230,10 +1241,11 @@ def main():
         st.subheader(get_text('general_settings'))
         
         # Стили пресеты с тултипом
-        st.markdown(f"**{get_text('style_presets')}**")
-        
-        # Добавляем тултип с информацией о стилях
-        st.markdown(f"<small>ℹ️ {get_text('style_preset_tooltip')}</small>", unsafe_allow_html=True)
+        col_preset, col_info = st.columns([3, 1])
+        with col_preset:
+            st.markdown(f"**{get_text('style_presets')}**")
+        with col_info:
+            st.markdown(f"<span title='{get_text('style_preset_tooltip')}'>ℹ️</span>", unsafe_allow_html=True)
         
         # Кнопки стилей в колонках
         col_gost, col_acs, col_rsc = st.columns(3)
@@ -1241,7 +1253,7 @@ def main():
         with col_gost:
             if st.button(get_text('gost_button'), use_container_width=True, key="gost_button"):
                 # Устанавливаем конфигурацию стиля ГОСТ
-                st.session_state.num = "1."
+                st.session_state.num = "No numbering"  # Без автоматической нумерации
                 st.session_state.auth = "Smith, A.A."
                 st.session_state.sep = ", "
                 st.session_state.etal = 0
@@ -1270,7 +1282,7 @@ def main():
         with col_acs:
             if st.button(get_text('acs_button'), use_container_width=True, key="acs_button"):
                 # Устанавливаем конфигурацию стиля ACS
-                st.session_state.num = "1."
+                st.session_state.num = "No numbering"  # Без автоматической нумерации
                 st.session_state.auth = "Smith, A.A."
                 st.session_state.sep = "; "
                 st.session_state.etal = 0
@@ -1278,7 +1290,7 @@ def main():
                 st.session_state.use_ampersand_checkbox = False
                 st.session_state.doi = "10.10/xxx"
                 st.session_state.doilink = True
-                st.session_state.page = "122–128"  # Исправлено: используем существующий формат
+                st.session_state.page = "122–128"
                 st.session_state.punct = "."
                 
                 # Очищаем все конфигурации элементов
@@ -1299,7 +1311,7 @@ def main():
         with col_rsc:
             if st.button(get_text('rsc_button'), use_container_width=True, key="rsc_button"):
                 # Устанавливаем конфигурацию стиля RSC
-                st.session_state.num = "1."
+                st.session_state.num = "No numbering"  # Без автоматической нумерации
                 st.session_state.auth = "A.A. Smith"
                 st.session_state.sep = ", "
                 st.session_state.etal = 0
@@ -1307,7 +1319,7 @@ def main():
                 st.session_state.use_ampersand_checkbox = False
                 st.session_state.doi = "10.10/xxx"
                 st.session_state.doilink = True
-                st.session_state.page = "122–128"  # Исправлено: используем существующий формат
+                st.session_state.page = "122"  # Только первая страница
                 st.session_state.punct = "."
                 
                 # Очищаем все конфигурации элементов
@@ -1409,7 +1421,7 @@ def main():
         )
         
         # Настройки страниц
-        page_options = ["122 - 128", "122-128", "122 – 128", "122–128", "122–8"]
+        page_options = ["122 - 128", "122-128", "122 – 128", "122–128", "122–8", "122"]
         # Безопасное получение индекса для page_format
         current_page = st.session_state.page
         page_index = 3  # Значение по умолчанию "122–128"
@@ -1552,8 +1564,8 @@ def main():
                 'year': 2020,
                 'volume': '15',
                 'issue': '3',
-                'pages': '',
-                'article_number': 'e12345',
+                'pages': '122-128',
+                'article_number': '',
                 'doi': '10.1000/xyz123'
             }
             preview_ref, _ = format_gost_reference(preview_metadata, style_config, for_preview=True)
