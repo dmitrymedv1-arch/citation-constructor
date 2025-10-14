@@ -316,7 +316,7 @@ def normalize_name(name):
     # Обрабатываем составные фамилии с дефисами, апострофами и другими разделителями
     if '-' in name or "'" in name or '’' in name:
         # Разбиваем на части по дефисам и апострофам
-        parts = re.split(r'([-\'ʼʼ\''])', name)
+        parts = re.split(r'([-\'’])', name)
         normalized_parts = []
         
         for i, part in enumerate(parts):
@@ -2226,3 +2226,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
