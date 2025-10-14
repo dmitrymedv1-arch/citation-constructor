@@ -739,6 +739,63 @@ def format_gost_reference(metadata, style_config, for_preview=False):
         
         return elements, False
 
+def get_journal_abbreviation(journal_name):
+    """Получает сокращенное название журнала"""
+    if not journal_name:
+        return ""
+    
+    # Словарь распространенных сокращений журналов
+    journal_abbreviations = {
+        'journal of the american chemical society': 'J. Am. Chem. Soc.',
+        'journal of organic chemistry': 'J. Org. Chem.',
+        'organic letters': 'Org. Lett.',
+        'chemical communications': 'Chem. Commun.',
+        'angewandte chemie international edition': 'Angew. Chem. Int. Ed.',
+        'advanced materials': 'Adv. Mater.',
+        'nature': 'Nature',
+        'science': 'Science',
+        'chemical reviews': 'Chem. Rev.',
+        'chemical society reviews': 'Chem. Soc. Rev.',
+        'acs nano': 'ACS Nano',
+        'nano letters': 'Nano Lett.',
+        'journal of physical chemistry': 'J. Phys. Chem.',
+        'journal of chemical physics': 'J. Chem. Phys.',
+        'physical review letters': 'Phys. Rev. Lett.',
+        'langmuir': 'Langmuir',
+        'analytical chemistry': 'Anal. Chem.',
+        'environmental science & technology': 'Environ. Sci. Technol.',
+        'journal of medicinal chemistry': 'J. Med. Chem.',
+        'biomacromolecules': 'Biomacromolecules',
+        'macromolecules': 'Macromolecules',
+        'polymer': 'Polymer',
+        'journal of biological chemistry': 'J. Biol. Chem.',
+        'biochemistry': 'Biochemistry',
+        'cell': 'Cell',
+        'nature communications': 'Nat. Commun.',
+        'proceedings of the national academy of sciences': 'Proc. Natl. Acad. Sci. U.S.A.',
+        'science advances': 'Sci. Adv.',
+        'advanced functional materials': 'Adv. Funct. Mater.',
+        'small': 'Small',
+        'acs applied materials & interfaces': 'ACS Appl. Mater. Interfaces',
+        'journal of materials chemistry a': 'J. Mater. Chem. A',
+        'energy & environmental science': 'Energy Environ. Sci.',
+        'green chemistry': 'Green Chem.',
+        'catalysis science & technology': 'Catal. Sci. Technol.'
+    }
+    
+    # Ищем полное совпадение в нижнем регистре
+    journal_lower = journal_name.lower().strip()
+    if journal_lower in journal_abbreviations:
+        return journal_abbreviations[journal_lower]
+    
+    # Если точного совпадения нет, пытаемся найти частичное
+    for full_name, abbreviation in journal_abbreviations.items():
+        if full_name in journal_lower or journal_lower in full_name:
+            return abbreviation
+    
+    # Если не нашли сокращение, возвращаем оригинальное название
+    return journal_name
+
 def format_acs_reference(metadata, style_config, for_preview=False):
     """Форматирование ссылки в стиле ACS (MDPI)"""
     if not metadata:
@@ -789,8 +846,11 @@ def format_acs_reference(metadata, style_config, for_preview=False):
     else:
         pages_formatted = ""
     
+    # Получаем сокращенное название журнала
+    journal_abbr = get_journal_abbreviation(metadata['journal'])
+    
     # Собираем ссылку ACS
-    acs_ref = f"{authors_str} {metadata['title']}. {metadata['journal']}. {metadata['year']}, {metadata['volume']}, {pages_formatted}."
+    acs_ref = f"{authors_str} {metadata['title']}. {journal_abbr} {metadata['year']}, {metadata['volume']}, {pages_formatted}."
     
     if for_preview:
         return acs_ref, False
@@ -805,7 +865,7 @@ def format_acs_reference(metadata, style_config, for_preview=False):
         elements.append((metadata['title'], False, False, ". ", False, None))
         
         # Журнал (курсив)
-        elements.append((metadata['journal'], True, False, ". ", False, None))
+        elements.append((journal_abbr, True, False, " ", False, None))
         
         # Год (жирный)
         elements.append((str(metadata['year']), False, True, ", ", False, None))
@@ -866,8 +926,11 @@ def format_rsc_reference(metadata, style_config, for_preview=False):
     else:
         pages_formatted = ""
     
+    # Получаем сокращенное название журнала
+    journal_abbr = get_journal_abbreviation(metadata['journal'])
+    
     # Собираем ссылку RSC
-    rsc_ref = f"{authors_str}, {metadata['journal']}, {metadata['year']}, {metadata['volume']}, {pages_formatted}."
+    rsc_ref = f"{authors_str}, {journal_abbr}, {metadata['year']}, {metadata['volume']}, {pages_formatted}."
     
     if for_preview:
         return rsc_ref, False
@@ -879,7 +942,7 @@ def format_rsc_reference(metadata, style_config, for_preview=False):
         elements.append((authors_str, False, False, ", ", False, None))
         
         # Журнал (курсив)
-        elements.append((metadata['journal'], True, False, ", ", False, None))
+        elements.append((journal_abbr, True, False, ", ", False, None))
         
         # Год
         elements.append((str(metadata['year']), False, False, ", ", False, None))
@@ -1029,10 +1092,9 @@ def process_docx(input_file, style_config, progress_container, status_container)
     # Создаем новый DOCX документ с отформатированными ссылками
     output_doc = Document()
     
-    if st.session_state.current_language == 'en':
-        output_doc.add_heading('References in Custom Style', level=1)
-    else:
-        output_doc.add_heading('Ссылки в пользовательском стиле', level=1)
+    # Измененный заголовок согласно требованию 1
+    output_doc.add_paragraph('Citation Style Construction / developed by daM©')
+    output_doc.add_heading('References', level=1)
     
     for i, (elements, is_error, metadata) in enumerate(formatted_refs):
         numbering = style_config['numbering_style']
@@ -1056,7 +1118,7 @@ def process_docx(input_file, style_config, progress_container, status_container)
         para = output_doc.add_paragraph(prefix)
         
         if is_error:
-            # Показываем оригинальный текст с желтым фоном и сообщением об ошибке
+            # Показываем оригинальный текст с желтым фоном и сообщением об ошибки
             run = para.add_run(str(elements))
             apply_yellow_background(run)
         elif i in duplicates_info:
@@ -1603,7 +1665,7 @@ def main():
                     }
                 ],
                 'title': 'Article Title',
-                'journal': 'Journal Name',
+                'journal': 'Journal of the American Chemical Society',
                 'year': 2020,
                 'volume': '15',
                 'issue': '3',
@@ -1630,7 +1692,14 @@ def main():
                 else:
                     preview_ref_with_numbering = f"1. {preview_ref}"
             
-            st.markdown(f"<small>{get_text('example')} {preview_ref_with_numbering}</small>", unsafe_allow_html=True)
+            # Исправление для требования 3 - показываем форматирование в предпросмотре
+            preview_html = preview_ref_with_numbering
+            # Добавляем HTML теги для форматирования
+            preview_html = preview_html.replace("J. Am. Chem. Soc.", "<i>J. Am. Chem. Soc.</i>")
+            preview_html = preview_html.replace("2020", "<b>2020</b>")
+            preview_html = preview_html.replace("15", "<i>15</i>")
+            
+            st.markdown(f"<small>{get_text('example')} {preview_html}</small>", unsafe_allow_html=True)
         
         elif st.session_state.get('rsc_style', False):
             # Пример для стиля RSC
@@ -1646,7 +1715,7 @@ def main():
                     }
                 ],
                 'title': 'Article Title',
-                'journal': 'Journal Name',
+                'journal': 'Chemical Communications',
                 'year': 2020,
                 'volume': '15',
                 'issue': '3',
@@ -1673,7 +1742,13 @@ def main():
                 else:
                     preview_ref_with_numbering = f"1. {preview_ref}"
             
-            st.markdown(f"<small>{get_text('example')} {preview_ref_with_numbering}</small>", unsafe_allow_html=True)
+            # Исправление для требования 3 - показываем форматирование в предпросмотре
+            preview_html = preview_ref_with_numbering
+            # Добавляем HTML теги для форматирования
+            preview_html = preview_html.replace("Chem. Commun.", "<i>Chem. Commun.</i>")
+            preview_html = preview_html.replace("15", "<b>15</b>")
+            
+            st.markdown(f"<small>{get_text('example')} {preview_html}</small>", unsafe_allow_html=True)
         
         elif not style_config['elements']:
             st.markdown(
@@ -1805,10 +1880,9 @@ def main():
                         # Создаем DOCX документ для текстового ввода
                         output_doc = Document()
                         
-                        if st.session_state.current_language == 'en':
-                            output_doc.add_heading('References in Custom Style', level=1)
-                        else:
-                            output_doc.add_heading('Ссылки в пользовательском стиле', level=1)
+                        # Измененный заголовок согласно требованию 1
+                        output_doc.add_paragraph('Citation Style Construction / developed by daM©')
+                        output_doc.add_heading('References', level=1)
                         
                         for i, (elements, is_error, metadata) in enumerate(formatted_refs):
                             numbering = style_config['numbering_style']
