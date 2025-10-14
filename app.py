@@ -199,6 +199,10 @@ class JournalAbbreviation:
     def __init__(self):
         self.ltwa_data = {}
         self.load_ltwa_data()
+        # Список аббревиатур, которые всегда пишутся с большой буквы
+        self.uppercase_abbreviations = {
+            'acs', 'ecs', 'rsc', 'ieee', 'iet', 'acm', 'aims', 'bmc', 'bmj', 'npj'
+        }
     
     def load_ltwa_data(self):
         """Загружает данные сокращений из файла ltwa.csv"""
@@ -251,7 +255,7 @@ class JournalAbbreviation:
         
         # Сокращаем каждое слово
         abbreviated_words = []
-        for word in words:
+        for i, word in enumerate(words):
             # Сохраняем регистр первой буквы
             original_first_char = word[0]
             abbreviated = self.abbreviate_word(word.lower())
@@ -259,6 +263,10 @@ class JournalAbbreviation:
             # Восстанавливаем регистр
             if abbreviated and original_first_char.isupper():
                 abbreviated = abbreviated[0].upper() + abbreviated[1:]
+            
+            # Для первого слова проверяем, является ли оно аббревиатурой, которую нужно писать с большой буквы
+            if i == 0 and abbreviated.lower() in self.uppercase_abbreviations:
+                abbreviated = abbreviated.upper()
             
             abbreviated_words.append(abbreviated)
         
@@ -286,21 +294,46 @@ def get_text(key):
 
 def clean_text(text):
     """Очищает текст от HTML тегов и entities"""
-    # Сначала убираем HTML теги
+    if not text:
+        return ""
+    
+    # Сначала убираем HTML теги, включая sub и sup
     text = re.sub(r'<[^>]+>', '', text)
+    
     # Затем декодируем HTML entities
     text = html.unescape(text)
+    
     # Убираем оставшиеся XML/HTML entities
     text = re.sub(r'&[^;]+;', '', text)
+    
     return text.strip()
 
 def normalize_name(name):
+    """Нормализует имя автора с учетом составных фамилий"""
     if not name:
         return ''
-    if len(name) > 1:
-        return name[0].upper() + name[1:].lower()
+    
+    # Обрабатываем составные фамилии с дефисами, апострофами и другими разделителями
+    if '-' in name or "'" in name or '’' in name:
+        # Разбиваем на части по дефисам и апострофам
+        parts = re.split(r'([-\'ʼʼ\''])', name)
+        normalized_parts = []
+        
+        for i, part in enumerate(parts):
+            if part in ['-', "'", '’', 'ʼ']:
+                normalized_parts.append(part)
+            else:
+                if part:
+                    # Каждую часть имени пишем с большой буквы
+                    normalized_parts.append(part[0].upper() + part[1:].lower() if len(part) > 1 else part.upper())
+        
+        return ''.join(normalized_parts)
     else:
-        return name.upper()
+        # Обычное имя
+        if len(name) > 1:
+            return name[0].upper() + name[1:].lower()
+        else:
+            return name.upper()
 
 def is_section_header(text):
     """Определяет, является ли текст заголовком раздела"""
@@ -1335,6 +1368,7 @@ def main():
         .element-row { margin: 0.01rem; padding: 0.01rem; }
         .processing-header { font-size: 0.8rem; font-weight: bold; margin-bottom: 0.1rem; }
         .processing-status { font-size: 0.7rem; margin-bottom: 0.05rem; }
+        .compact-row { margin-bottom: 0.1rem; }
         </style>
     """, unsafe_allow_html=True)
 
@@ -1493,82 +1527,47 @@ def main():
             index=["No numbering", "1", "1.", "1)", "(1)", "[1]"].index(st.session_state.num)
         )
         
-        # Настройки авторов
-        author_format = st.selectbox(
-            get_text('author_format'), 
-            ["AA Smith", "A.A. Smith", "Smith AA", "Smith A.A", "Smith, A.A."], 
-            key="auth", 
-            index=["AA Smith", "A.A. Smith", "Smith AA", "Smith A.A", "Smith, A.A."].index(st.session_state.auth)
-        )
+        # Настройки авторов в одной строке
+        col_authors = st.columns([1, 1, 1])
+        with col_authors[0]:
+            author_format = st.selectbox(
+                get_text('author_format'), 
+                ["AA Smith", "A.A. Smith", "Smith AA", "Smith A.A", "Smith, A.A."], 
+                key="auth", 
+                index=["AA Smith", "A.A. Smith", "Smith AA", "Smith A.A", "Smith, A.A."].index(st.session_state.auth)
+            )
+        with col_authors[1]:
+            author_separator = st.selectbox(
+                get_text('author_separator'), 
+                [", ", "; "], 
+                key="sep", 
+                index=[", ", "; "].index(st.session_state.sep)
+            )
+        with col_authors[2]:
+            et_al_limit = st.number_input(
+                get_text('et_al_limit'), 
+                min_value=0, 
+                step=1, 
+                key="etal", 
+                value=st.session_state.etal
+            )
         
-        author_separator = st.selectbox(
-            get_text('author_separator'), 
-            [", ", "; "], 
-            key="sep", 
-            index=[", ", "; "].index(st.session_state.sep)
-        )
-        
-        et_al_limit = st.number_input(
-            get_text('et_al_limit'), 
-            min_value=0, 
-            step=1, 
-            key="etal", 
-            value=st.session_state.etal
-        )
-        
-        # Чекбоксы для разделителей авторов
-        col_and, col_amp = st.columns(2)
-        with col_and:
+        # Чекбоксы для разделителей авторов в одной строке
+        col_and_amp = st.columns(2)
+        with col_and_amp[0]:
             use_and_checkbox = st.checkbox(
                 get_text('use_and'), 
                 key="use_and_checkbox", 
                 value=st.session_state.use_and_checkbox,
                 disabled=st.session_state.use_ampersand_checkbox
             )
-        with col_amp:
+        with col_and_amp[1]:
             use_ampersand_checkbox = st.checkbox(
                 get_text('use_ampersand'), 
                 key="use_ampersand_checkbox", 
                 value=st.session_state.use_ampersand_checkbox,
                 disabled=st.session_state.use_and_checkbox
             )
-        
-        # Настройки DOI
-        doi_format = st.selectbox(
-            get_text('doi_format'), 
-            ["10.10/xxx", "doi:10.10/xxx", "DOI:10.10/xxx", "https://dx.doi.org/10.10/xxx"], 
-            key="doi", 
-            index=["10.10/xxx", "doi:10.10/xxx", "DOI:10.10/xxx", "https://dx.doi.org/10.10/xxx"].index(st.session_state.doi)
-        )
-        
-        doi_hyperlink = st.checkbox(
-            get_text('doi_hyperlink'), 
-            key="doilink", 
-            value=st.session_state.doilink
-        )
-        
-        # Настройки страниц
-        page_options = ["122 - 128", "122-128", "122 – 128", "122–128", "122–8", "122"]
-        # Безопасное получение индекса для page_format
-        current_page = st.session_state.page
-        page_index = 3  # Значение по умолчанию "122–128"
-        if current_page in page_options:
-            page_index = page_options.index(current_page)
-        
-        page_format = st.selectbox(
-            get_text('page_format'), 
-            page_options, 
-            key="page", 
-            index=page_index
-        )
-        
-        # Конечная пунктуация
-        final_punctuation = st.selectbox(
-            get_text('final_punctuation'), 
-            ["", "."], 
-            key="punct", 
-            index=["", "."].index(st.session_state.punct)
-        )
         
         # Стиль журнала
         journal_style = st.selectbox(
@@ -1589,6 +1588,45 @@ def main():
                 "{J. Abbr.}": get_text('journal_abbr_with_dots'),
                 "{J Abbr}": get_text('journal_abbr_no_dots')
             }[x]
+        )
+        
+        # Настройки страниц
+        page_options = ["122 - 128", "122-128", "122 – 128", "122–128", "122–8", "122"]
+        # Безопасное получение индекса для page_format
+        current_page = st.session_state.page
+        page_index = 3  # Значение по умолчанию "122–128"
+        if current_page in page_options:
+            page_index = page_options.index(current_page)
+        
+        page_format = st.selectbox(
+            get_text('page_format'), 
+            page_options, 
+            key="page", 
+            index=page_index
+        )
+        
+        # Настройки DOI в одной строке
+        col_doi = st.columns([2, 1])
+        with col_doi[0]:
+            doi_format = st.selectbox(
+                get_text('doi_format'), 
+                ["10.10/xxx", "doi:10.10/xxx", "DOI:10.10/xxx", "https://dx.doi.org/10.10/xxx"], 
+                key="doi", 
+                index=["10.10/xxx", "doi:10.10/xxx", "DOI:10.10/xxx", "https://dx.doi.org/10.10/xxx"].index(st.session_state.doi)
+            )
+        with col_doi[1]:
+            doi_hyperlink = st.checkbox(
+                get_text('doi_hyperlink'), 
+                key="doilink", 
+                value=st.session_state.doilink
+            )
+        
+        # Конечная пунктуация
+        final_punctuation = st.selectbox(
+            get_text('final_punctuation'), 
+            ["", "."], 
+            key="punct", 
+            index=["", "."].index(st.session_state.punct)
         )
 
     with col2:
