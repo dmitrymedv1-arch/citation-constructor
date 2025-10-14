@@ -1,3 +1,5 @@
+import os
+import csv
 import streamlit as st
 import re
 import json
@@ -84,7 +86,11 @@ TRANSLATIONS = {
         'gost_button': 'GOST',
         'acs_button': 'ACS (MDPI)',
         'rsc_button': 'RSC',
-        'style_preset_tooltip': 'Here are some styles maintained by individual publishers. For major publishers (Elsevier, Springer Nature, and Wiley), styles vary from journal to journal. To create (or reformat) references for a specific journal, use the Citation Style Constructor.'
+        'style_preset_tooltip': 'Here are some styles maintained by individual publishers. For major publishers (Elsevier, Springer Nature, and Wiley), styles vary from journal to journal. To create (or reformat) references for a specific journal, use the Citation Style Constructor.',
+        'journal_style': 'Journal style:',
+        'full_journal_name': 'Full Journal Name',
+        'journal_abbr_with_dots': 'J. Abbr.',
+        'journal_abbr_no_dots': 'J Abbr'
     },
     'ru': {
         'header': '🎨 Конструктор стилей цитирования',
@@ -149,7 +155,11 @@ TRANSLATIONS = {
         'gost_button': 'ГОСТ',
         'acs_button': 'ACS (MDPI)',
         'rsc_button': 'RSC',
-        'style_preset_tooltip': 'Здесь указаны некоторые стили, которые сохраняются в пределах одного издательства. Для ряда крупных издательств (Esevier, Springer Nature, Wiley) стиль отличается от журнала к журналу. Для формирования (или переформатирования) ссылок для конкретного журнала предлагаем воспользоваться конструктором ссылок.'
+        'style_preset_tooltip': 'Здесь указаны некоторые стили, которые сохраняются в пределах одного издательства. Для ряда крупных издательств (Esevier, Springer Nature, Wiley) стиль отличается от журнала к журналу. Для формирования (или переформатирования) ссылок для конкретного журнала предлагаем воспользоваться конструктором ссылок.',
+        'journal_style': 'Стиль журнала:',
+        'full_journal_name': 'Полное название журнала',
+        'journal_abbr_with_dots': 'J. Abbr.',
+        'journal_abbr_no_dots': 'J Abbr'
     }
 }
 
@@ -180,6 +190,86 @@ if 'use_and_checkbox' not in st.session_state:
     st.session_state.use_and_checkbox = False
 if 'use_ampersand_checkbox' not in st.session_state:
     st.session_state.use_ampersand_checkbox = False
+
+# Для хранения стиля журнала
+if 'journal_style' not in st.session_state:
+    st.session_state.journal_style = '{Full Journal Name}'
+
+class JournalAbbreviation:
+    def __init__(self):
+        self.ltwa_data = {}
+        self.load_ltwa_data()
+    
+    def load_ltwa_data(self):
+        """Загружает данные сокращений из файла ltwa.csv"""
+        try:
+            csv_path = os.path.join(os.path.dirname(__file__), 'ltwa.csv')
+            with open(csv_path, 'r', encoding='utf-8') as f:
+                reader = csv.reader(f, delimiter='\t')
+                next(reader)  # Пропускаем заголовок
+                for row in reader:
+                    if len(row) >= 2:
+                        word = row[0].strip()
+                        abbreviation = row[1].strip() if row[1].strip() else None
+                        self.ltwa_data[word] = abbreviation
+        except FileNotFoundError:
+            print("Файл ltwa.csv не найден")
+        except Exception as e:
+            print(f"Ошибка загрузки ltwa.csv: {e}")
+    
+    def abbreviate_word(self, word: str) -> str:
+        """Сокращает одно слово на основе данных LTWA"""
+        word_lower = word.lower()
+        
+        # Проверяем точное совпадение
+        if word_lower in self.ltwa_data:
+            abbr = self.ltwa_data[word_lower]
+            return abbr if abbr else word
+        
+        # Проверяем совпадение с дефисом (корневые слова)
+        for ltwa_word, abbr in self.ltwa_data.items():
+            if ltwa_word.endswith('-') and word_lower.startswith(ltwa_word[:-1]):
+                return abbr if abbr else word
+        
+        return word
+    
+    def abbreviate_journal_name(self, journal_name: str, style: str = "{J. Abbr.}") -> str:
+        """Сокращает название журнала в соответствии с выбранным стилем"""
+        if not journal_name:
+            return ""
+        
+        # Удаляем артикли, предлоги и двоеточия
+        words_to_remove = {'a', 'an', 'the', 'of', 'in', 'and', '&', ':'}
+        words = [word for word in journal_name.split() if word.lower() not in words_to_remove]
+        
+        # Сокращаем каждое слово
+        abbreviated_words = []
+        for word in words:
+            # Сохраняем регистр первой буквы
+            original_first_char = word[0]
+            abbreviated = self.abbreviate_word(word.lower())
+            
+            # Восстанавливаем регистр
+            if abbreviated and original_first_char.isupper():
+                abbreviated = abbreviated[0].upper() + abbreviated[1:]
+            
+            abbreviated_words.append(abbreviated)
+        
+        # Формируем результат в зависимости от стиля
+        if style == "{J. Abbr.}":
+            # Аббревиатура с точками
+            result = " ".join(abbreviated_words)
+        elif style == "{J Abbr}":
+            # Аббревиатура без точек
+            result = " ".join(abbr.replace('.', '') for abbr in abbreviated_words)
+        else:
+            # Полное название
+            result = journal_name
+        
+        return result
+
+# Инициализация системы сокращений
+journal_abbrev = JournalAbbreviation()
 
 def get_text(key):
     return TRANSLATIONS[st.session_state.current_language].get(key, key)
@@ -589,7 +679,10 @@ def format_reference(metadata, style_config, for_preview=False):
         elif element == "Title":
             value = metadata['title']
         elif element == "Journal":
-            value = metadata['journal']
+            # Применяем сокращение названия журнала в соответствии с выбранным стилем
+            journal_name = metadata['journal']
+            journal_style = style_config.get('journal_style', '{Full Journal Name}')
+            value = journal_abbrev.abbreviate_journal_name(journal_name, journal_style)
         elif element == "Year":
             value = str(metadata['year']) if metadata['year'] else ""
         elif element == "Volume":
@@ -699,11 +792,15 @@ def format_gost_reference(metadata, style_config, for_preview=False):
     # Форматируем DOI
     doi_url = f"https://doi.org/{metadata['doi']}"
     
+    # Применяем сокращение названия журнала для стиля ГОСТ
+    journal_style = style_config.get('journal_style', '{Full Journal Name}')
+    journal_name = journal_abbrev.abbreviate_journal_name(metadata['journal'], journal_style)
+    
     # Строим ссылку ГОСТ с номером выпуска, если доступно
     if metadata['issue']:
-        gost_ref = f"{first_author} {metadata['title']} / {all_authors} // {metadata['journal']}. – {metadata['year']}. – {volume_label} {metadata['volume']}. – {issue_label} {metadata['issue']}."
+        gost_ref = f"{first_author} {metadata['title']} / {all_authors} // {journal_name}. – {metadata['year']}. – {volume_label} {metadata['volume']}. – {issue_label} {metadata['issue']}."
     else:
-        gost_ref = f"{first_author} {metadata['title']} / {all_authors} // {metadata['journal']}. – {metadata['year']}. – {volume_label} {metadata['volume']}."
+        gost_ref = f"{first_author} {metadata['title']} / {all_authors} // {journal_name}. – {metadata['year']}. – {volume_label} {metadata['volume']}."
     
     # Добавляем страницы или номер статьи
     if pages:
@@ -738,63 +835,6 @@ def format_gost_reference(metadata, style_config, for_preview=False):
         elements.append((doi_url, False, False, "", True, metadata['doi']))
         
         return elements, False
-
-def get_journal_abbreviation(journal_name):
-    """Получает сокращенное название журнала"""
-    if not journal_name:
-        return ""
-    
-    # Словарь распространенных сокращений журналов
-    journal_abbreviations = {
-        'journal of the american chemical society': 'J. Am. Chem. Soc.',
-        'journal of organic chemistry': 'J. Org. Chem.',
-        'organic letters': 'Org. Lett.',
-        'chemical communications': 'Chem. Commun.',
-        'angewandte chemie international edition': 'Angew. Chem. Int. Ed.',
-        'advanced materials': 'Adv. Mater.',
-        'nature': 'Nature',
-        'science': 'Science',
-        'chemical reviews': 'Chem. Rev.',
-        'chemical society reviews': 'Chem. Soc. Rev.',
-        'acs nano': 'ACS Nano',
-        'nano letters': 'Nano Lett.',
-        'journal of physical chemistry': 'J. Phys. Chem.',
-        'journal of chemical physics': 'J. Chem. Phys.',
-        'physical review letters': 'Phys. Rev. Lett.',
-        'langmuir': 'Langmuir',
-        'analytical chemistry': 'Anal. Chem.',
-        'environmental science & technology': 'Environ. Sci. Technol.',
-        'journal of medicinal chemistry': 'J. Med. Chem.',
-        'biomacromolecules': 'Biomacromolecules',
-        'macromolecules': 'Macromolecules',
-        'polymer': 'Polymer',
-        'journal of biological chemistry': 'J. Biol. Chem.',
-        'biochemistry': 'Biochemistry',
-        'cell': 'Cell',
-        'nature communications': 'Nat. Commun.',
-        'proceedings of the national academy of sciences': 'Proc. Natl. Acad. Sci. U.S.A.',
-        'science advances': 'Sci. Adv.',
-        'advanced functional materials': 'Adv. Funct. Mater.',
-        'small': 'Small',
-        'acs applied materials & interfaces': 'ACS Appl. Mater. Interfaces',
-        'journal of materials chemistry a': 'J. Mater. Chem. A',
-        'energy & environmental science': 'Energy Environ. Sci.',
-        'green chemistry': 'Green Chem.',
-        'catalysis science & technology': 'Catal. Sci. Technol.'
-    }
-    
-    # Ищем полное совпадение в нижнем регистре
-    journal_lower = journal_name.lower().strip()
-    if journal_lower in journal_abbreviations:
-        return journal_abbreviations[journal_lower]
-    
-    # Если точного совпадения нет, пытаемся найти частичное
-    for full_name, abbreviation in journal_abbreviations.items():
-        if full_name in journal_lower or journal_lower in full_name:
-            return abbreviation
-    
-    # Если не нашли сокращение, возвращаем оригинальное название
-    return journal_name
 
 def format_acs_reference(metadata, style_config, for_preview=False):
     """Форматирование ссылки в стиле ACS (MDPI)"""
@@ -846,11 +886,12 @@ def format_acs_reference(metadata, style_config, for_preview=False):
     else:
         pages_formatted = ""
     
-    # Получаем сокращенное название журнала
-    journal_abbr = get_journal_abbreviation(metadata['journal'])
+    # Применяем сокращение названия журнала для стиля ACS
+    journal_style = style_config.get('journal_style', '{J. Abbr.}')  # По умолчанию с точками для ACS
+    journal_name = journal_abbrev.abbreviate_journal_name(metadata['journal'], journal_style)
     
     # Собираем ссылку ACS
-    acs_ref = f"{authors_str} {metadata['title']}. {journal_abbr} {metadata['year']}, {metadata['volume']}, {pages_formatted}."
+    acs_ref = f"{authors_str} {metadata['title']}. {journal_name} {metadata['year']}, {metadata['volume']}, {pages_formatted}."
     
     if for_preview:
         return acs_ref, False
@@ -865,7 +906,7 @@ def format_acs_reference(metadata, style_config, for_preview=False):
         elements.append((metadata['title'], False, False, ". ", False, None))
         
         # Журнал (курсив)
-        elements.append((journal_abbr, True, False, " ", False, None))
+        elements.append((journal_name, True, False, " ", False, None))
         
         # Год (жирный)
         elements.append((str(metadata['year']), False, True, ", ", False, None))
@@ -926,11 +967,12 @@ def format_rsc_reference(metadata, style_config, for_preview=False):
     else:
         pages_formatted = ""
     
-    # Получаем сокращенное название журнала
-    journal_abbr = get_journal_abbreviation(metadata['journal'])
+    # Применяем сокращение названия журнала для стиля RSC
+    journal_style = style_config.get('journal_style', '{J. Abbr.}')  # По умолчанию с точками для RSC
+    journal_name = journal_abbrev.abbreviate_journal_name(metadata['journal'], journal_style)
     
     # Собираем ссылку RSC
-    rsc_ref = f"{authors_str}, {journal_abbr}, {metadata['year']}, {metadata['volume']}, {pages_formatted}."
+    rsc_ref = f"{authors_str}, {journal_name}, {metadata['year']}, {metadata['volume']}, {pages_formatted}."
     
     if for_preview:
         return rsc_ref, False
@@ -942,7 +984,7 @@ def format_rsc_reference(metadata, style_config, for_preview=False):
         elements.append((authors_str, False, False, ", ", False, None))
         
         # Журнал (курсив)
-        elements.append((journal_abbr, True, False, ", ", False, None))
+        elements.append((journal_name, True, False, ", ", False, None))
         
         # Год
         elements.append((str(metadata['year']), False, False, ", ", False, None))
@@ -1233,6 +1275,7 @@ def apply_imported_style(imported_style):
     st.session_state.gost_style = imported_style.get('gost_style', False)
     st.session_state.acs_style = imported_style.get('acs_style', False)
     st.session_state.rsc_style = imported_style.get('rsc_style', False)
+    st.session_state.journal_style = imported_style.get('journal_style', '{Full Journal Name}')
     
     # Применяем элементы
     elements = imported_style.get('elements', [])
@@ -1325,6 +1368,7 @@ def main():
                 st.session_state.doilink = True
                 st.session_state.page = "122–128"
                 st.session_state.punct = ""
+                st.session_state.journal_style = "{Full Journal Name}"  # Полное название для ГОСТ
                 
                 # Очищаем все конфигурации элементов
                 for i in range(8):
@@ -1354,6 +1398,7 @@ def main():
                 st.session_state.doilink = True
                 st.session_state.page = "122–128"
                 st.session_state.punct = "."
+                st.session_state.journal_style = "{J. Abbr.}"  # Сокращения с точками для ACS
                 
                 # Очищаем все конфигурации элементов
                 for i in range(8):
@@ -1383,6 +1428,7 @@ def main():
                 st.session_state.doilink = True
                 st.session_state.page = "122"  # Только первая страница
                 st.session_state.punct = "."
+                st.session_state.journal_style = "{J. Abbr.}"  # Сокращения с точками для RSC
                 
                 # Очищаем все конфигурации элементов
                 for i in range(8):
@@ -1413,7 +1459,8 @@ def main():
             'punct': "",
             'gost_style': False,
             'acs_style': False,
-            'rsc_style': False
+            'rsc_style': False,
+            'journal_style': '{Full Journal Name}'
         }
         
         for key, default in default_values.items():
@@ -1503,6 +1550,27 @@ def main():
             ["", "."], 
             key="punct", 
             index=["", "."].index(st.session_state.punct)
+        )
+        
+        # Стиль журнала
+        journal_style = st.selectbox(
+            get_text('journal_style'),
+            [
+                "{Full Journal Name}",
+                "{J. Abbr.}", 
+                "{J Abbr}"
+            ],
+            key="journal_style",
+            index=[
+                "{Full Journal Name}",
+                "{J. Abbr.}", 
+                "{J Abbr}"
+            ].index(st.session_state.journal_style),
+            format_func=lambda x: {
+                "{Full Journal Name}": get_text('full_journal_name'),
+                "{J. Abbr.}": get_text('journal_abbr_with_dots'),
+                "{J Abbr}": get_text('journal_abbr_no_dots')
+            }[x]
         )
 
     with col2:
@@ -1601,6 +1669,7 @@ def main():
             'page_format': st.session_state.page,
             'final_punctuation': st.session_state.punct,
             'numbering_style': st.session_state.num,
+            'journal_style': st.session_state.journal_style,
             'elements': element_configs,
             'gost_style': st.session_state.get('gost_style', False),
             'acs_style': st.session_state.get('acs_style', False),
@@ -1622,7 +1691,7 @@ def main():
                     }
                 ],
                 'title': 'Article Title',
-                'journal': 'Journal Name',
+                'journal': 'Journal of the American Chemical Society',
                 'year': 2020,
                 'volume': '15',
                 'issue': '3',
@@ -1769,7 +1838,7 @@ def main():
                     }
                 ],
                 'title': 'Article Title',
-                'journal': 'Journal Name',
+                'journal': 'Journal of the American Chemical Society',
                 'year': 2020,
                 'volume': '15',
                 'issue': '3',
@@ -2063,6 +2132,7 @@ def main():
             'page_format': st.session_state.page,
             'final_punctuation': st.session_state.punct,
             'numbering_style': st.session_state.num,
+            'journal_style': st.session_state.journal_style,
             'elements': element_configs,
             'gost_style': st.session_state.get('gost_style', False),
             'acs_style': st.session_state.get('acs_style', False),
@@ -2100,3 +2170,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+    main()
+
