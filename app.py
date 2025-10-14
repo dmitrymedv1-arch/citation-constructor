@@ -86,6 +86,7 @@ TRANSLATIONS = {
         'gost_button': 'GOST',
         'acs_button': 'ACS (MDPI)',
         'rsc_button': 'RSC',
+        'cta_button': 'CTA',
         'style_preset_tooltip': 'Here are some styles maintained by individual publishers. For major publishers (Elsevier, Springer Nature, and Wiley), styles vary from journal to journal. To create (or reformat) references for a specific journal, use the Citation Style Constructor.',
         'journal_style': 'Journal style:',
         'full_journal_name': 'Full Journal Name',
@@ -155,6 +156,7 @@ TRANSLATIONS = {
         'gost_button': 'ГОСТ',
         'acs_button': 'ACS (MDPI)',
         'rsc_button': 'RSC',
+        'cta_button': 'CTA',
         'style_preset_tooltip': 'Здесь указаны некоторые стили, которые сохраняются в пределах одного издательства. Для ряда крупных издательств (Esevier, Springer Nature, Wiley) стиль отличается от журнала к журналу. Для формирования (или переформатирования) ссылок для конкретного журнала предлагаем воспользоваться конструктором ссылок.',
         'journal_style': 'Стиль журнала:',
         'full_journal_name': 'Полное название журнала',
@@ -320,7 +322,7 @@ def normalize_name(name):
         normalized_parts = []
         
         for i, part in enumerate(parts):
-            if part in ['-', "'", '’', 'ʼ']:
+            if part in ['-', "'", '’']:
                 normalized_parts.append(part)
             else:
                 if part:
@@ -631,6 +633,22 @@ def format_pages(pages, article_number, page_format, style_type="default"):
                 return first_page
             else:
                 return pages.strip()
+        elif style_type == "cta":
+            # Для стиля CTA сокращаем диапазон страниц (6441–6 вместо 6441–6446)
+            if '-' in pages:
+                start, end = pages.split('-')
+                start = start.strip()
+                end = end.strip()
+                
+                # Сокращаем конечную страницу если возможно
+                if len(start) == len(end) and start[:-1] == end[:-1]:
+                    return f"{start}–{end[-1]}"
+                elif len(start) > 1 and len(end) > 1 and start[:-2] == end[:-2]:
+                    return f"{start}–{end[-2:]}"
+                else:
+                    return f"{start}–{end}"
+            else:
+                return pages.strip()
         else:
             # Для других стилей используем стандартное форматирование
             if '-' not in pages:
@@ -703,6 +721,10 @@ def format_reference(metadata, style_config, for_preview=False):
     # Проверяем, включен ли стиль RSC
     if style_config.get('rsc_style', False):
         return format_rsc_reference(metadata, style_config, for_preview)
+    
+    # Проверяем, включен ли стиль CTA
+    if style_config.get('cta_style', False):
+        return format_cta_reference(metadata, style_config, for_preview)
     
     elements = []
     
@@ -1048,6 +1070,85 @@ def format_rsc_reference(metadata, style_config, for_preview=False):
         
         return elements, False
 
+def format_cta_reference(metadata, style_config, for_preview=False):
+    """Форматирование ссылки в стиле CTA"""
+    if not metadata:
+        error_message = "Ошибка: Не удалось отформатировать ссылку." if st.session_state.current_language == 'ru' else "Error: Could not format the reference."
+        return (error_message, True)
+    
+    # Форматируем авторов в стиле CTA: Surname Initials, Surname Initials, ... Surname Initials
+    authors_str = ""
+    for i, author in enumerate(metadata['authors']):
+        given = author['given']
+        family = author['family']
+        
+        # Извлекаем инициалы
+        initials = given.split()[:2]
+        first_initial = initials[0][0] if initials else ''
+        second_initial = initials[1][0].upper() if len(initials) > 1 else ''
+        
+        # Форматируем автора: Surname Initials (без точек)
+        if second_initial:
+            author_str = f"{family} {first_initial}{second_initial}"
+        else:
+            author_str = f"{family} {first_initial}"
+        
+        authors_str += author_str
+        
+        # Добавляем разделитель
+        if i < len(metadata['authors']) - 1:
+            authors_str += ", "
+    
+    # Форматируем страницы для стиля CTA (сокращаем диапазон)
+    pages = metadata['pages']
+    article_number = metadata['article_number']
+    pages_formatted = format_pages(pages, article_number, "", "cta")
+    
+    # Применяем сокращение названия журнала для стиля CTA (без точек)
+    journal_style = style_config.get('journal_style', '{J Abbr}')  # По умолчанию без точек для CTA
+    journal_name = journal_abbrev.abbreviate_journal_name(metadata['journal'], journal_style)
+    
+    # Форматируем номер выпуска если есть
+    issue_part = f"({metadata['issue']})" if metadata['issue'] else ""
+    
+    # Собираем ссылку CTA
+    cta_ref = f"{authors_str}. {metadata['title']}. {journal_name}. {metadata['year']};{metadata['volume']}{issue_part}:{pages_formatted}. doi:{metadata['doi']}"
+    
+    if for_preview:
+        return cta_ref, False
+    else:
+        # Для реального документа разбиваем на элементы с форматированием
+        elements = []
+        
+        # Авторы
+        elements.append((authors_str, False, False, ". ", False, None))
+        
+        # Название
+        elements.append((metadata['title'], False, False, ". ", False, None))
+        
+        # Журнал (курсив)
+        elements.append((journal_name, True, False, ". ", False, None))
+        
+        # Год
+        elements.append((str(metadata['year']), False, False, ";", False, None))
+        
+        # Том
+        elements.append((metadata['volume'], False, False, "", False, None))
+        
+        # Номер выпуска (если есть)
+        if metadata['issue']:
+            elements.append((f"({metadata['issue']})", False, False, ":", False, None))
+        else:
+            elements.append(("", False, False, ":", False, None))
+        
+        # Страницы
+        elements.append((pages_formatted, False, False, ". doi:", False, None))
+        
+        # DOI
+        elements.append((metadata['doi'], False, False, "", False, None))
+        
+        return elements, False
+
 def apply_yellow_background(run):
     shd = OxmlElement('w:shd')
     shd.set(qn('w:fill'), 'FFFF00')
@@ -1326,6 +1427,7 @@ def apply_imported_style(imported_style):
     st.session_state.gost_style = imported_style.get('gost_style', False)
     st.session_state.acs_style = imported_style.get('acs_style', False)
     st.session_state.rsc_style = imported_style.get('rsc_style', False)
+    st.session_state.cta_style = imported_style.get('cta_style', False)
     st.session_state.journal_style = imported_style.get('journal_style', '{Full Journal Name}')
     
     # Применяем элементы
@@ -1405,7 +1507,7 @@ def main():
             st.markdown(f"<span title='{get_text('style_preset_tooltip')}'>ℹ️</span>", unsafe_allow_html=True)
         
         # Кнопки стилей в колонках
-        col_gost, col_acs, col_rsc = st.columns(3)
+        col_gost, col_acs, col_rsc, col_cta = st.columns(4)
         
         with col_gost:
             if st.button(get_text('gost_button'), use_container_width=True, key="gost_button"):
@@ -1434,6 +1536,7 @@ def main():
                 st.session_state.gost_style = True
                 st.session_state.acs_style = False
                 st.session_state.rsc_style = False
+                st.session_state.cta_style = False
                 st.session_state.style_applied = True
                 st.rerun()
         
@@ -1464,6 +1567,7 @@ def main():
                 st.session_state.gost_style = False
                 st.session_state.acs_style = True
                 st.session_state.rsc_style = False
+                st.session_state.cta_style = False
                 st.session_state.style_applied = True
                 st.rerun()
         
@@ -1494,6 +1598,38 @@ def main():
                 st.session_state.gost_style = False
                 st.session_state.acs_style = False
                 st.session_state.rsc_style = True
+                st.session_state.cta_style = False
+                st.session_state.style_applied = True
+                st.rerun()
+        
+        with col_cta:
+            if st.button(get_text('cta_button'), use_container_width=True, key="cta_button"):
+                # Устанавливаем конфигурацию стиля CTA
+                st.session_state.num = "No numbering"  # Без автоматической нумерации
+                st.session_state.auth = "Smith AA"
+                st.session_state.sep = ", "
+                st.session_state.etal = 0
+                st.session_state.use_and_checkbox = False
+                st.session_state.use_ampersand_checkbox = False
+                st.session_state.doi = "doi:10.10/xxx"
+                st.session_state.doilink = True
+                st.session_state.page = "122–8"  # Сокращенный формат страниц
+                st.session_state.punct = ""
+                st.session_state.journal_style = "{J Abbr}"  # Сокращения без точек для CTA
+                
+                # Очищаем все конфигурации элементов
+                for i in range(8):
+                    st.session_state[f"el{i}"] = ""
+                    st.session_state[f"it{i}"] = False
+                    st.session_state[f"bd{i}"] = False
+                    st.session_state[f"pr{i}"] = False
+                    st.session_state[f"sp{i}"] = ". "
+                
+                # Устанавливаем флаг стиля CTA
+                st.session_state.gost_style = False
+                st.session_state.acs_style = False
+                st.session_state.rsc_style = False
+                st.session_state.cta_style = True
                 st.session_state.style_applied = True
                 st.rerun()
         
@@ -1512,6 +1648,7 @@ def main():
             'gost_style': False,
             'acs_style': False,
             'rsc_style': False,
+            'cta_style': False,
             'journal_style': '{Full Journal Name}'
         }
         
@@ -1729,7 +1866,8 @@ def main():
             'elements': element_configs,
             'gost_style': st.session_state.get('gost_style', False),
             'acs_style': st.session_state.get('acs_style', False),
-            'rsc_style': st.session_state.get('rsc_style', False)
+            'rsc_style': st.session_state.get('rsc_style', False),
+            'cta_style': st.session_state.get('cta_style', False)
         }
         
         # Показываем пример форматирования
@@ -1875,6 +2013,61 @@ def main():
             
             st.markdown(f"<small>{get_text('example')} {preview_html}</small>", unsafe_allow_html=True)
         
+        elif st.session_state.get('cta_style', False):
+            # Пример для стиля CTA
+            preview_metadata = {
+                'authors': [
+                    {
+                        'given': 'Fei', 
+                        'family': 'He'
+                    }, 
+                    {
+                        'given': 'Feng', 
+                        'family': 'Ma'
+                    },
+                    {
+                        'given': 'Juan', 
+                        'family': 'Li'
+                    },
+                    {
+                        'given': 'Tao', 
+                        'family': 'Li'
+                    },
+                    {
+                        'given': 'Guangshe', 
+                        'family': 'Li'
+                    }
+                ],
+                'title': 'Effect of calcination temperature on the structural properties and photocatalytic activities of solvothermal synthesized TiO2 hollow nanoparticles',
+                'journal': 'Ceramics International',
+                'year': 2014,
+                'volume': '40',
+                'issue': '5',
+                'pages': '6441-6446',
+                'article_number': '',
+                'doi': '10.1016/j.ceramint.2013.11.094'
+            }
+            preview_ref, _ = format_cta_reference(preview_metadata, style_config, for_preview=True)
+            
+            numbering = style_config['numbering_style']
+            if numbering == "No numbering":
+                preview_ref_with_numbering = preview_ref
+            else:
+                if numbering == "1":
+                    preview_ref_with_numbering = f"1 {preview_ref}"
+                elif numbering == "1.":
+                    preview_ref_with_numbering = f"1. {preview_ref}"
+                elif numbering == "1)":
+                    preview_ref_with_numbering = f"1) {preview_ref}"
+                elif numbering == "(1)":
+                    preview_ref_with_numbering = f"(1) {preview_ref}"
+                elif numbering == "[1]":
+                    preview_ref_with_numbering = f"[1] {preview_ref}"
+                else:
+                    preview_ref_with_numbering = f"1. {preview_ref}"
+            
+            st.markdown(f"<small>{get_text('example')} {preview_ref_with_numbering}</small>", unsafe_allow_html=True)
+        
         elif not style_config['elements']:
             st.markdown(
                 f"<b style='color:red; font-size: 0.7rem;'>{get_text('error_select_element')}</b>", 
@@ -1971,7 +2164,7 @@ def main():
 
         # Кнопка обработки
         if st.button(get_text('process'), use_container_width=True, key="process_button"):
-            if not style_config['elements'] and not style_config.get('gost_style', False) and not style_config.get('acs_style', False) and not style_config.get('rsc_style', False):
+            if not style_config['elements'] and not style_config.get('gost_style', False) and not style_config.get('acs_style', False) and not style_config.get('rsc_style', False) and not style_config.get('cta_style', False):
                 st.error(get_text('error_select_element'))
                 return
                 
@@ -2146,66 +2339,75 @@ def main():
             
             st.rerun()
 
-        # Кнопки скачивания
+        # Кнопки скачивания в одной строке
         if st.session_state.download_data:
-            st.download_button(
-                label=get_text('doi_txt'),
-                data=st.session_state.download_data['txt_bytes'],
-                file_name='doi_list.txt',
-                mime='text/plain',
-                key="doi_download"
-            )
-            
-            if output_method == 'DOCX' and st.session_state.download_data.get('output_doc_buffer'):
+            col_download = st.columns(2)
+            with col_download[0]:
                 st.download_button(
-                    label=get_text('references_docx'),
-                    data=st.session_state.download_data['output_doc_buffer'],
-                    file_name='references_custom.docx',
-                    mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                    key="docx_download"
+                    label=get_text('doi_txt'),
+                    data=st.session_state.download_data['txt_bytes'],
+                    file_name='doi_list.txt',
+                    mime='text/plain',
+                    key="doi_download",
+                    use_container_width=True
                 )
+            
+            with col_download[1]:
+                if output_method == 'DOCX' and st.session_state.download_data.get('output_doc_buffer'):
+                    st.download_button(
+                        label=get_text('references_docx'),
+                        data=st.session_state.download_data['output_doc_buffer'],
+                        file_name='references_custom.docx',
+                        mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                        key="docx_download",
+                        use_container_width=True
+                    )
 
         # Управление стилями
         st.subheader("💾 Style Management")
         
-        # Экспорт текущего стиля
-        export_file_name = st.text_input(
-            get_text('export_file_name'), 
-            value="my_citation_style", 
-            placeholder="Enter file name", 
-            key="export_name"
-        )
-        
-        # Создаем конфигурацию текущего стиля для экспорта
-        current_style_config = {
-            'author_format': st.session_state.auth,
-            'author_separator': st.session_state.sep,
-            'et_al_limit': st.session_state.etal if st.session_state.etal > 0 else None,
-            'use_and_bool': st.session_state.use_and_checkbox,
-            'use_ampersand_bool': st.session_state.use_ampersand_checkbox,
-            'doi_format': st.session_state.doi,
-            'doi_hyperlink': st.session_state.doilink,
-            'page_format': st.session_state.page,
-            'final_punctuation': st.session_state.punct,
-            'numbering_style': st.session_state.num,
-            'journal_style': st.session_state.journal_style,
-            'elements': element_configs,
-            'gost_style': st.session_state.get('gost_style', False),
-            'acs_style': st.session_state.get('acs_style', False),
-            'rsc_style': st.session_state.get('rsc_style', False)
-        }
-        
-        # Кнопка экспорта
-        export_data = export_style(current_style_config, export_file_name)
-        if export_data:
-            st.download_button(
-                label=get_text('export_style'),
-                data=export_data,
-                file_name=f"{export_file_name}.json",
-                mime="application/json",
-                use_container_width=True,
-                key="export_button"
+        # Экспорт стиля в одной строке
+        col_export = st.columns([2, 1])
+        with col_export[0]:
+            export_file_name = st.text_input(
+                get_text('export_file_name'), 
+                value="my_citation_style", 
+                placeholder="Enter file name", 
+                key="export_name"
             )
+        
+        with col_export[1]:
+            # Создаем конфигурацию текущего стиля для экспорта
+            current_style_config = {
+                'author_format': st.session_state.auth,
+                'author_separator': st.session_state.sep,
+                'et_al_limit': st.session_state.etal if st.session_state.etal > 0 else None,
+                'use_and_bool': st.session_state.use_and_checkbox,
+                'use_ampersand_bool': st.session_state.use_ampersand_checkbox,
+                'doi_format': st.session_state.doi,
+                'doi_hyperlink': st.session_state.doilink,
+                'page_format': st.session_state.page,
+                'final_punctuation': st.session_state.punct,
+                'numbering_style': st.session_state.num,
+                'journal_style': st.session_state.journal_style,
+                'elements': element_configs,
+                'gost_style': st.session_state.get('gost_style', False),
+                'acs_style': st.session_state.get('acs_style', False),
+                'rsc_style': st.session_state.get('rsc_style', False),
+                'cta_style': st.session_state.get('cta_style', False)
+            }
+            
+            # Кнопка экспорта
+            export_data = export_style(current_style_config, export_file_name)
+            if export_data:
+                st.download_button(
+                    label=get_text('export_style'),
+                    data=export_data,
+                    file_name=f"{export_file_name}.json",
+                    mime="application/json",
+                    use_container_width=True,
+                    key="export_button"
+                )
         
         # Импорт стиля
         imported_file = st.file_uploader(
@@ -2226,4 +2428,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
