@@ -195,6 +195,10 @@ if 'use_ampersand_checkbox' not in st.session_state:
 if 'ltwa_dict' not in st.session_state:
     st.session_state.ltwa_dict = {}
 
+# Для хранения выбранного стиля журнала
+if 'journal_style' not in st.session_state:
+    st.session_state.journal_style = "Full Journal Name"
+
 def get_text(key):
     return TRANSLATIONS[st.session_state.current_language].get(key, key)
 
@@ -930,9 +934,8 @@ def format_acs_reference(metadata, style_config, for_preview=False, ltwa_dict=No
     else:
         pages_formatted = ""
     
-    # Применяем сокращение названия журнала
-    journal_style = style_config.get('journal_style', 'Full Journal Name')
-    journal_name = abbreviate_journal_name(metadata['journal'], journal_style, ltwa_dict)
+    # Для ACS стиля всегда используем сокращения с точками
+    journal_name = abbreviate_journal_name(metadata['journal'], "J. Abbr.", ltwa_dict)
     
     # Собираем ссылку ACS
     acs_ref = f"{authors_str} {metadata['title']}. {journal_name}. {metadata['year']}, {metadata['volume']}, {pages_formatted}."
@@ -1014,9 +1017,8 @@ def format_rsc_reference(metadata, style_config, for_preview=False, ltwa_dict=No
     else:
         pages_formatted = ""
     
-    # Применяем сокращение названия журнала
-    journal_style = style_config.get('journal_style', 'Full Journal Name')
-    journal_name = abbreviate_journal_name(metadata['journal'], journal_style, ltwa_dict)
+    # Для RSC стиля всегда используем сокращения с точками
+    journal_name = abbreviate_journal_name(metadata['journal'], "J. Abbr.", ltwa_dict)
     
     # Собираем ссылку RSC
     rsc_ref = f"{authors_str}, {journal_name}, {metadata['year']}, {metadata['volume']}, {pages_formatted}."
@@ -1181,10 +1183,19 @@ def process_docx(input_file, style_config, progress_container, status_container)
     # Создаем новый DOCX документ с отформатированными ссылками
     output_doc = Document()
     
-    if st.session_state.current_language == 'en':
-        output_doc.add_heading('References in Custom Style', level=1)
-    else:
-        output_doc.add_heading('Ссылки в пользовательском стиле', level=1)
+    # Добавляем новый заголовок
+    title_para = output_doc.add_paragraph()
+    title_run = title_para.add_run("Citation Style Construction / developed by daM©")
+    title_run.bold = True
+    title_run.font.size = Pt(14)
+    title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    
+    # Добавляем пустую строку
+    output_doc.add_paragraph()
+    
+    # Добавляем заголовок References
+    references_heading = output_doc.add_paragraph("References")
+    references_heading.style = output_doc.styles['Heading1']
     
     for i, (elements, is_error, metadata) in enumerate(formatted_refs):
         numbering = style_config['numbering_style']
@@ -1446,7 +1457,7 @@ def main():
                 st.session_state.doilink = True
                 st.session_state.page = "122–128"
                 st.session_state.punct = "."
-                st.session_state.journal_style = "J. Abbr."
+                st.session_state.journal_style = "J. Abbr."  # Для ACS всегда используем сокращения
                 
                 # Очищаем все конфигурации элементов
                 for i in range(8):
@@ -1476,7 +1487,7 @@ def main():
                 st.session_state.doilink = True
                 st.session_state.page = "122"  # Только первая страница
                 st.session_state.punct = "."
-                st.session_state.journal_style = "J. Abbr."
+                st.session_state.journal_style = "J. Abbr."  # Для RSC всегда используем сокращения
                 
                 # Очищаем все конфигурации элементов
                 for i in range(8):
@@ -1573,9 +1584,13 @@ def main():
         journal_style = st.selectbox(
             get_text('journal_style'), 
             ["Full Journal Name", "J. Abbr.", "J Abbr"], 
-            key="journal_style", 
+            key="journal_style_selector",
             index=["Full Journal Name", "J. Abbr.", "J Abbr"].index(st.session_state.journal_style)
         )
+        
+        # Обновляем session_state только если значение изменилось
+        if journal_style != st.session_state.journal_style:
+            st.session_state.journal_style = journal_style
         
         # Настройки DOI
         doi_format = st.selectbox(
@@ -1977,10 +1992,19 @@ def main():
                         # Создаем DOCX документ для текстового ввода
                         output_doc = Document()
                         
-                        if st.session_state.current_language == 'en':
-                            output_doc.add_heading('References in Custom Style', level=1)
-                        else:
-                            output_doc.add_heading('Ссылки в пользовательском стиле', level=1)
+                        # Добавляем новый заголовок
+                        title_para = output_doc.add_paragraph()
+                        title_run = title_para.add_run("Citation Style Construction / developed by daM©")
+                        title_run.bold = True
+                        title_run.font.size = Pt(14)
+                        title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                        
+                        # Добавляем пустую строку
+                        output_doc.add_paragraph()
+                        
+                        # Добавляем заголовок References
+                        references_heading = output_doc.add_paragraph("References")
+                        references_heading.style = output_doc.styles['Heading1']
                         
                         for i, (elements, is_error, metadata) in enumerate(formatted_refs):
                             numbering = style_config['numbering_style']
