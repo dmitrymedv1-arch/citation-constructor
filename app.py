@@ -245,6 +245,10 @@ class JournalAbbreviation:
         # Удаляем двоеточия из отдельных слов
         words = [word.replace(':', '') for word in words]
         
+        # Если после удаления артиклей и предлогов осталось только одно слово - не сокращаем
+        if len(words) <= 1:
+            return journal_name
+        
         # Сокращаем каждое слово
         abbreviated_words = []
         for word in words:
