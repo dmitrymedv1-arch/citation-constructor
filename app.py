@@ -16,8 +16,6 @@ import concurrent.futures
 from typing import List, Dict, Tuple, Set
 import hashlib
 import time
-import PyPDF2
-import os
 
 works = Works()
 
@@ -40,10 +38,6 @@ TRANSLATIONS = {
         'doi_hyperlink': 'DOI as hyperlink',
         'page_format': 'Pages:',
         'final_punctuation': 'Final punctuation:',
-        'journal_style': 'Journal style:',
-        'journal_full': 'Full Journal Name',
-        'journal_abbr_dots': 'J. Abbr.',
-        'journal_abbr_no_dots': 'J Abbr',
         'element': 'Element',
         'italic': 'Italic',
         'bold': 'Bold',
@@ -109,10 +103,6 @@ TRANSLATIONS = {
         'doi_hyperlink': 'DOI как ссылка',
         'page_format': 'Страницы:',
         'final_punctuation': 'Конечная пунктуация:',
-        'journal_style': 'Стиль журнала:',
-        'journal_full': 'Полное название',
-        'journal_abbr_dots': 'Сокр. с точками',
-        'journal_abbr_no_dots': 'Сокр. без точек',
         'element': 'Элемент',
         'italic': 'Курсив',
         'bold': 'Жирный',
@@ -191,128 +181,8 @@ if 'use_and_checkbox' not in st.session_state:
 if 'use_ampersand_checkbox' not in st.session_state:
     st.session_state.use_ampersand_checkbox = False
 
-# Для хранения LTWA словаря
-if 'ltwa_dict' not in st.session_state:
-    st.session_state.ltwa_dict = {}
-
-# Для хранения выбранного стиля журнала
-if 'journal_style' not in st.session_state:
-    st.session_state.journal_style = "Full Journal Name"
-
 def get_text(key):
     return TRANSLATIONS[st.session_state.current_language].get(key, key)
-
-def load_ltwa_dict():
-    """Загружает словарь сокращений из PDF файла LTWA"""
-    if st.session_state.ltwa_dict:
-        return st.session_state.ltwa_dict
-    
-    try:
-        # Путь к PDF файлу в той же директории
-        pdf_path = "ltwa.pdf"
-        
-        if not os.path.exists(pdf_path):
-            st.warning("LTWA PDF file not found. Journal abbreviations will not be available.")
-            return {}
-        
-        ltwa_dict = {}
-        
-        with open(pdf_path, 'rb') as file:
-            pdf_reader = PyPDF2.PdfReader(file)
-            
-            for page in pdf_reader.pages:
-                text = page.extract_text()
-                lines = text.split('\n')
-                
-                for line in lines:
-                    # Парсим строки с тремя колонками: слово | сокращение | язык
-                    parts = line.split()
-                    if len(parts) >= 2:
-                        word = parts[0].strip()
-                        abbreviation = parts[1].strip()
-                        
-                        # Обрабатываем слова с дефисом (cement- -> Cem.)
-                        if word.endswith('-'):
-                            root_word = word[:-1].lower()
-                            ltwa_dict[root_word] = abbreviation
-                        else:
-                            ltwa_dict[word.lower()] = abbreviation
-        
-        st.session_state.ltwa_dict = ltwa_dict
-        return ltwa_dict
-        
-    except Exception as e:
-        st.error(f"Error loading LTWA dictionary: {str(e)}")
-        return {}
-
-def abbreviate_journal_name(full_name, journal_style, ltwa_dict):
-    """
-    Сокращает название журнала согласно LTWA и выбранному стилю
-    """
-    if not full_name or journal_style == "Full Journal Name":
-        return full_name
-    
-    # Слова, которые нужно пропускать (предлоги, артикли)
-    skip_words = {'of', 'in', 'and', '&', 'a', 'an', 'the', 'for', 'on', 'at', 'by', 'with'}
-    
-    # Убираем двоеточие и разделяем на слова
-    clean_name = full_name.replace(':', '')
-    words = clean_name.split()
-    
-    abbreviated_words = []
-    
-    for word in words:
-        clean_word = word.strip('.,').lower()
-        
-        # Пропускаем предлоги, артикли и т.д.
-        if clean_word in skip_words:
-            continue
-        
-        # Ищем сокращение в словаре
-        abbreviation = None
-        
-        # Сначала ищем точное совпадение
-        if clean_word in ltwa_dict:
-            abbreviation = ltwa_dict[clean_word]
-        else:
-            # Ищем по корню (для слов с дефисом в словаре)
-            for root, abbr in ltwa_dict.items():
-                if clean_word.startswith(root):
-                    abbreviation = abbr
-                    break
-        
-        if abbreviation:
-            if journal_style == "J. Abbr.":
-                # Добавляем точки если их нет
-                if '.' not in abbreviation:
-                    # Добавляем точки после каждой заглавной буквы, кроме последней
-                    chars = list(abbreviation)
-                    result = []
-                    for i, char in enumerate(chars):
-                        result.append(char)
-                        if char.isupper() and i < len(chars) - 1 and chars[i + 1].isupper():
-                            result.append('.')
-                    abbreviation = ''.join(result)
-                    if abbreviation and not abbreviation.endswith('.'):
-                        abbreviation += '.'
-                abbreviated_words.append(abbreviation)
-            else:  # "J Abbr" - без точек
-                # Убираем точки из существующих сокращений
-                abbreviation = abbreviation.replace('.', '')
-                abbreviated_words.append(abbreviation)
-        else:
-            # Если сокращения нет, оставляем слово как есть
-            if journal_style == "J. Abbr.":
-                # Для стиля с точками, добавляем точку если слово короткое и в верхнем регистре
-                if word.isupper() and len(word) <= 4:
-                    abbreviated_words.append(word + '.')
-                else:
-                    abbreviated_words.append(word)
-            else:
-                abbreviated_words.append(word)
-    
-    result = ' '.join(abbreviated_words)
-    return result if result else full_name
 
 def clean_text(text):
     """Очищает текст от HTML тегов и entities"""
@@ -689,20 +559,17 @@ def format_reference(metadata, style_config, for_preview=False):
         error_message = "Ошибка: Не удалось отформатировать ссылку." if st.session_state.current_language == 'ru' else "Error: Could not format the reference."
         return (error_message, True)
     
-    # Загружаем словарь сокращений
-    ltwa_dict = load_ltwa_dict()
-    
     # Проверяем, включен ли стиль ГОСТ
     if style_config.get('gost_style', False):
-        return format_gost_reference(metadata, style_config, for_preview, ltwa_dict)
+        return format_gost_reference(metadata, style_config, for_preview)
     
     # Проверяем, включен ли стиль ACS
     if style_config.get('acs_style', False):
-        return format_acs_reference(metadata, style_config, for_preview, ltwa_dict)
+        return format_acs_reference(metadata, style_config, for_preview)
     
     # Проверяем, включен ли стиль RSC
     if style_config.get('rsc_style', False):
-        return format_rsc_reference(metadata, style_config, for_preview, ltwa_dict)
+        return format_rsc_reference(metadata, style_config, for_preview)
     
     elements = []
     
@@ -722,9 +589,7 @@ def format_reference(metadata, style_config, for_preview=False):
         elif element == "Title":
             value = metadata['title']
         elif element == "Journal":
-            # Применяем сокращение названия журнала
-            journal_style = style_config.get('journal_style', 'Full Journal Name')
-            value = abbreviate_journal_name(metadata['journal'], journal_style, ltwa_dict)
+            value = metadata['journal']
         elif element == "Year":
             value = str(metadata['year']) if metadata['year'] else ""
         elif element == "Volume":
@@ -781,14 +646,11 @@ def format_reference(metadata, style_config, for_preview=False):
     else:
         return elements, False
 
-def format_gost_reference(metadata, style_config, for_preview=False, ltwa_dict=None):
+def format_gost_reference(metadata, style_config, for_preview=False):
     """Форматирование ссылки по стандарту ГОСТ"""
     if not metadata:
         error_message = "Ошибка: Не удалось отформатировать ссылку." if st.session_state.current_language == 'ru' else "Error: Could not format the reference."
         return (error_message, True)
-    
-    if ltwa_dict is None:
-        ltwa_dict = load_ltwa_dict()
     
     # Форматируем первого автора для основной части
     first_author = ""
@@ -827,10 +689,6 @@ def format_gost_reference(metadata, style_config, for_preview=False, ltwa_dict=N
     pages = metadata['pages']
     article_number = metadata['article_number']
     
-    # Применяем сокращение названия журнала
-    journal_style = style_config.get('journal_style', 'Full Journal Name')
-    journal_name = abbreviate_journal_name(metadata['journal'], journal_style, ltwa_dict)
-    
     # Определяем язык и устанавливаем метки для томов/страниц/статей
     is_russian = st.session_state.current_language == 'ru'
     volume_label = "Т." if is_russian else "Vol."
@@ -843,9 +701,9 @@ def format_gost_reference(metadata, style_config, for_preview=False, ltwa_dict=N
     
     # Строим ссылку ГОСТ с номером выпуска, если доступно
     if metadata['issue']:
-        gost_ref = f"{first_author} {metadata['title']} / {all_authors} // {journal_name}. – {metadata['year']}. – {volume_label} {metadata['volume']}. – {issue_label} {metadata['issue']}."
+        gost_ref = f"{first_author} {metadata['title']} / {all_authors} // {metadata['journal']}. – {metadata['year']}. – {volume_label} {metadata['volume']}. – {issue_label} {metadata['issue']}."
     else:
-        gost_ref = f"{first_author} {metadata['title']} / {all_authors} // {journal_name}. – {metadata['year']}. – {volume_label} {metadata['volume']}."
+        gost_ref = f"{first_author} {metadata['title']} / {all_authors} // {metadata['journal']}. – {metadata['year']}. – {volume_label} {metadata['volume']}."
     
     # Добавляем страницы или номер статьи
     if pages:
@@ -881,14 +739,11 @@ def format_gost_reference(metadata, style_config, for_preview=False, ltwa_dict=N
         
         return elements, False
 
-def format_acs_reference(metadata, style_config, for_preview=False, ltwa_dict=None):
+def format_acs_reference(metadata, style_config, for_preview=False):
     """Форматирование ссылки в стиле ACS (MDPI)"""
     if not metadata:
         error_message = "Ошибка: Не удалось отформатировать ссылку." if st.session_state.current_language == 'ru' else "Error: Could not format the reference."
         return (error_message, True)
-    
-    if ltwa_dict is None:
-        ltwa_dict = load_ltwa_dict()
     
     # Форматируем авторов в стиле ACS: Surname, I.I.; Surname, I.I.; ...
     authors_str = ""
@@ -934,11 +789,8 @@ def format_acs_reference(metadata, style_config, for_preview=False, ltwa_dict=No
     else:
         pages_formatted = ""
     
-    # Для ACS стиля всегда используем сокращения с точками
-    journal_name = abbreviate_journal_name(metadata['journal'], "J. Abbr.", ltwa_dict)
-    
     # Собираем ссылку ACS
-    acs_ref = f"{authors_str} {metadata['title']}. {journal_name}. {metadata['year']}, {metadata['volume']}, {pages_formatted}."
+    acs_ref = f"{authors_str} {metadata['title']}. {metadata['journal']}. {metadata['year']}, {metadata['volume']}, {pages_formatted}."
     
     if for_preview:
         return acs_ref, False
@@ -953,7 +805,7 @@ def format_acs_reference(metadata, style_config, for_preview=False, ltwa_dict=No
         elements.append((metadata['title'], False, False, ". ", False, None))
         
         # Журнал (курсив)
-        elements.append((journal_name, True, False, ". ", False, None))
+        elements.append((metadata['journal'], True, False, ". ", False, None))
         
         # Год (жирный)
         elements.append((str(metadata['year']), False, True, ", ", False, None))
@@ -966,14 +818,11 @@ def format_acs_reference(metadata, style_config, for_preview=False, ltwa_dict=No
         
         return elements, False
 
-def format_rsc_reference(metadata, style_config, for_preview=False, ltwa_dict=None):
+def format_rsc_reference(metadata, style_config, for_preview=False):
     """Форматирование ссылки в стиле RSC"""
     if not metadata:
         error_message = "Ошибка: Не удалось отформатировать ссылку." if st.session_state.current_language == 'ru' else "Error: Could not format the reference."
         return (error_message, True)
-    
-    if ltwa_dict is None:
-        ltwa_dict = load_ltwa_dict()
     
     # Форматируем авторов в стиле RSC: I.I. Surname, I.I. Surname, ... and I.I. Surname
     authors_str = ""
@@ -1017,11 +866,8 @@ def format_rsc_reference(metadata, style_config, for_preview=False, ltwa_dict=No
     else:
         pages_formatted = ""
     
-    # Для RSC стиля всегда используем сокращения с точками
-    journal_name = abbreviate_journal_name(metadata['journal'], "J. Abbr.", ltwa_dict)
-    
     # Собираем ссылку RSC
-    rsc_ref = f"{authors_str}, {journal_name}, {metadata['year']}, {metadata['volume']}, {pages_formatted}."
+    rsc_ref = f"{authors_str}, {metadata['journal']}, {metadata['year']}, {metadata['volume']}, {pages_formatted}."
     
     if for_preview:
         return rsc_ref, False
@@ -1033,7 +879,7 @@ def format_rsc_reference(metadata, style_config, for_preview=False, ltwa_dict=No
         elements.append((authors_str, False, False, ", ", False, None))
         
         # Журнал (курсив)
-        elements.append((journal_name, True, False, ", ", False, None))
+        elements.append((metadata['journal'], True, False, ", ", False, None))
         
         # Год
         elements.append((str(metadata['year']), False, False, ", ", False, None))
@@ -1183,19 +1029,10 @@ def process_docx(input_file, style_config, progress_container, status_container)
     # Создаем новый DOCX документ с отформатированными ссылками
     output_doc = Document()
     
-    # Добавляем новый заголовок
-    title_para = output_doc.add_paragraph()
-    title_run = title_para.add_run("Citation Style Construction / developed by daM©")
-    title_run.bold = True
-    title_run.font.size = Pt(14)
-    title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    
-    # Добавляем пустую строку
-    output_doc.add_paragraph()
-    
-    # Добавляем заголовок References
-    references_heading = output_doc.add_paragraph("References")
-    references_heading.style = output_doc.styles['Heading1']
+    if st.session_state.current_language == 'en':
+        output_doc.add_heading('References in Custom Style', level=1)
+    else:
+        output_doc.add_heading('Ссылки в пользовательском стиле', level=1)
     
     for i, (elements, is_error, metadata) in enumerate(formatted_refs):
         numbering = style_config['numbering_style']
@@ -1331,7 +1168,6 @@ def apply_imported_style(imported_style):
     st.session_state.doilink = imported_style.get('doi_hyperlink', True)
     st.session_state.page = imported_style.get('page_format', "122–128")
     st.session_state.punct = imported_style.get('final_punctuation', "")
-    st.session_state.journal_style = imported_style.get('journal_style', "Full Journal Name")
     st.session_state.gost_style = imported_style.get('gost_style', False)
     st.session_state.acs_style = imported_style.get('acs_style', False)
     st.session_state.rsc_style = imported_style.get('rsc_style', False)
@@ -1427,7 +1263,6 @@ def main():
                 st.session_state.doilink = True
                 st.session_state.page = "122–128"
                 st.session_state.punct = ""
-                st.session_state.journal_style = "Full Journal Name"
                 
                 # Очищаем все конфигурации элементов
                 for i in range(8):
@@ -1457,7 +1292,6 @@ def main():
                 st.session_state.doilink = True
                 st.session_state.page = "122–128"
                 st.session_state.punct = "."
-                st.session_state.journal_style = "J. Abbr."  # Для ACS всегда используем сокращения
                 
                 # Очищаем все конфигурации элементов
                 for i in range(8):
@@ -1487,7 +1321,6 @@ def main():
                 st.session_state.doilink = True
                 st.session_state.page = "122"  # Только первая страница
                 st.session_state.punct = "."
-                st.session_state.journal_style = "J. Abbr."  # Для RSC всегда используем сокращения
                 
                 # Очищаем все конфигурации элементов
                 for i in range(8):
@@ -1516,7 +1349,6 @@ def main():
             'doilink': True,
             'page': "122–128",
             'punct': "",
-            'journal_style': "Full Journal Name",
             'gost_style': False,
             'acs_style': False,
             'rsc_style': False
@@ -1534,63 +1366,45 @@ def main():
             index=["No numbering", "1", "1.", "1)", "(1)", "[1]"].index(st.session_state.num)
         )
         
-        # Настройки авторов в одной строке
-        col_auth1, col_auth2, col_auth3, col_auth4 = st.columns([2, 1, 1, 1])
+        # Настройки авторов
+        author_format = st.selectbox(
+            get_text('author_format'), 
+            ["AA Smith", "A.A. Smith", "Smith AA", "Smith A.A", "Smith, A.A."], 
+            key="auth", 
+            index=["AA Smith", "A.A. Smith", "Smith AA", "Smith A.A", "Smith, A.A."].index(st.session_state.auth)
+        )
         
-        with col_auth1:
-            author_format = st.selectbox(
-                get_text('author_format'), 
-                ["AA Smith", "A.A. Smith", "Smith AA", "Smith A.A", "Smith, A.A."], 
-                key="auth", 
-                index=["AA Smith", "A.A. Smith", "Smith AA", "Smith A.A", "Smith, A.A."].index(st.session_state.auth),
-                label_visibility="collapsed"
-            )
+        author_separator = st.selectbox(
+            get_text('author_separator'), 
+            [", ", "; "], 
+            key="sep", 
+            index=[", ", "; "].index(st.session_state.sep)
+        )
         
-        with col_auth2:
-            author_separator = st.selectbox(
-                get_text('author_separator'), 
-                [", ", "; "], 
-                key="sep", 
-                index=[", ", "; "].index(st.session_state.sep),
-                label_visibility="collapsed"
-            )
+        et_al_limit = st.number_input(
+            get_text('et_al_limit'), 
+            min_value=0, 
+            step=1, 
+            key="etal", 
+            value=st.session_state.etal
+        )
         
-        with col_auth3:
-            et_al_limit = st.number_input(
-                get_text('et_al_limit'), 
-                min_value=0, 
-                step=1, 
-                key="etal", 
-                value=st.session_state.etal,
-                label_visibility="collapsed"
-            )
-        
-        with col_auth4:
-            # Чекбоксы для разделителей авторов в одной строке
+        # Чекбоксы для разделителей авторов
+        col_and, col_amp = st.columns(2)
+        with col_and:
             use_and_checkbox = st.checkbox(
                 get_text('use_and'), 
                 key="use_and_checkbox", 
                 value=st.session_state.use_and_checkbox,
                 disabled=st.session_state.use_ampersand_checkbox
             )
+        with col_amp:
             use_ampersand_checkbox = st.checkbox(
                 get_text('use_ampersand'), 
                 key="use_ampersand_checkbox", 
                 value=st.session_state.use_ampersand_checkbox,
                 disabled=st.session_state.use_and_checkbox
             )
-        
-        # Настройки стиля журнала
-        journal_style = st.selectbox(
-            get_text('journal_style'), 
-            ["Full Journal Name", "J. Abbr.", "J Abbr"], 
-            key="journal_style_selector",
-            index=["Full Journal Name", "J. Abbr.", "J Abbr"].index(st.session_state.journal_style)
-        )
-        
-        # Обновляем session_state только если значение изменилось
-        if journal_style != st.session_state.journal_style:
-            st.session_state.journal_style = journal_style
         
         # Настройки DOI
         doi_format = st.selectbox(
@@ -1724,7 +1538,6 @@ def main():
             'doi_hyperlink': st.session_state.doilink,
             'page_format': st.session_state.page,
             'final_punctuation': st.session_state.punct,
-            'journal_style': st.session_state.journal_style,
             'numbering_style': st.session_state.num,
             'elements': element_configs,
             'gost_style': st.session_state.get('gost_style', False),
@@ -1747,7 +1560,7 @@ def main():
                     }
                 ],
                 'title': 'Article Title',
-                'journal': 'Journal of the American Chemical Society',
+                'journal': 'Journal Name',
                 'year': 2020,
                 'volume': '15',
                 'issue': '3',
@@ -1790,7 +1603,7 @@ def main():
                     }
                 ],
                 'title': 'Article Title',
-                'journal': 'Journal of the American Chemical Society',
+                'journal': 'Journal Name',
                 'year': 2020,
                 'volume': '15',
                 'issue': '3',
@@ -1833,7 +1646,7 @@ def main():
                     }
                 ],
                 'title': 'Article Title',
-                'journal': 'Journal of the American Chemical Society',
+                'journal': 'Journal Name',
                 'year': 2020,
                 'volume': '15',
                 'issue': '3',
@@ -1881,7 +1694,7 @@ def main():
                     }
                 ],
                 'title': 'Article Title',
-                'journal': 'Journal of the American Chemical Society',
+                'journal': 'Journal Name',
                 'year': 2020,
                 'volume': '15',
                 'issue': '3',
@@ -1992,19 +1805,10 @@ def main():
                         # Создаем DOCX документ для текстового ввода
                         output_doc = Document()
                         
-                        # Добавляем новый заголовок
-                        title_para = output_doc.add_paragraph()
-                        title_run = title_para.add_run("Citation Style Construction / developed by daM©")
-                        title_run.bold = True
-                        title_run.font.size = Pt(14)
-                        title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                        
-                        # Добавляем пустую строку
-                        output_doc.add_paragraph()
-                        
-                        # Добавляем заголовок References
-                        references_heading = output_doc.add_paragraph("References")
-                        references_heading.style = output_doc.styles['Heading1']
+                        if st.session_state.current_language == 'en':
+                            output_doc.add_heading('References in Custom Style', level=1)
+                        else:
+                            output_doc.add_heading('Ссылки в пользовательском стиле', level=1)
                         
                         for i, (elements, is_error, metadata) in enumerate(formatted_refs):
                             numbering = style_config['numbering_style']
@@ -2184,7 +1988,6 @@ def main():
             'doi_hyperlink': st.session_state.doilink,
             'page_format': st.session_state.page,
             'final_punctuation': st.session_state.punct,
-            'journal_style': st.session_state.journal_style,
             'numbering_style': st.session_state.num,
             'elements': element_configs,
             'gost_style': st.session_state.get('gost_style', False),
