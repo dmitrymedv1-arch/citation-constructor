@@ -239,8 +239,11 @@ class JournalAbbreviation:
             return ""
         
         # Удаляем артикли, предлоги и двоеточия
-        words_to_remove = {'a', 'an', 'the', 'of', 'in', 'and', '&', ':'}
+        words_to_remove = {'a', 'an', 'the', 'of', 'in', 'and', '&'}
         words = [word for word in journal_name.split() if word.lower() not in words_to_remove]
+        
+        # Удаляем двоеточия из отдельных слов
+        words = [word.replace(':', '') for word in words]
         
         # Сокращаем каждое слово
         abbreviated_words = []
@@ -265,6 +268,9 @@ class JournalAbbreviation:
         else:
             # Полное название
             result = journal_name
+        
+        # Убираем двойные точки
+        result = re.sub(r'\.\.+', '.', result)
         
         return result
 
@@ -735,6 +741,9 @@ def format_reference(metadata, style_config, for_preview=False):
             elif i == len(elements) - 1 and style_config['final_punctuation']:
                 ref_str = ref_str.rstrip(',.') + "."
         
+        # Убираем двойные точки
+        ref_str = re.sub(r'\.\.+', '.', ref_str)
+        
         return ref_str, False
     else:
         return elements, False
@@ -792,9 +801,8 @@ def format_gost_reference(metadata, style_config, for_preview=False):
     # Форматируем DOI
     doi_url = f"https://doi.org/{metadata['doi']}"
     
-    # Применяем сокращение названия журнала для стиля ГОСТ
-    journal_style = style_config.get('journal_style', '{Full Journal Name}')
-    journal_name = journal_abbrev.abbreviate_journal_name(metadata['journal'], journal_style)
+    # Для ГОСТ используем полное название журнала (без сокращений)
+    journal_name = metadata['journal']
     
     # Строим ссылку ГОСТ с номером выпуска, если доступно
     if metadata['issue']:
@@ -893,6 +901,9 @@ def format_acs_reference(metadata, style_config, for_preview=False):
     # Собираем ссылку ACS
     acs_ref = f"{authors_str} {metadata['title']}. {journal_name} {metadata['year']}, {metadata['volume']}, {pages_formatted}."
     
+    # Убираем двойные точки
+    acs_ref = re.sub(r'\.\.+', '.', acs_ref)
+    
     if for_preview:
         return acs_ref, False
     else:
@@ -973,6 +984,9 @@ def format_rsc_reference(metadata, style_config, for_preview=False):
     
     # Собираем ссылку RSC
     rsc_ref = f"{authors_str}, {journal_name}, {metadata['year']}, {metadata['volume']}, {pages_formatted}."
+    
+    # Убираем двойные точки
+    rsc_ref = re.sub(r'\.\.+', '.', rsc_ref)
     
     if for_preview:
         return rsc_ref, False
@@ -2170,5 +2184,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    main()
-
