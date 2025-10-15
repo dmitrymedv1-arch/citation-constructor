@@ -1145,10 +1145,11 @@ def format_cta_reference(metadata, style_config, for_preview=False):
             elements.append(("", False, False, ":", False, None))
         
         # Страницы
-        elements.append((pages_formatted, False, False, ". doi:", False, None))
+        elements.append((pages_formatted, False, False, ". ", False, None))
         
         # DOI - всегда как гиперссылка в стиле CTA
-        elements.append((metadata['doi'], False, False, "", True, metadata['doi']))
+        doi_text = f"doi:{metadata['doi']}"
+        elements.append((doi_text, False, False, "", True, metadata['doi']))
         
         return elements, False
 
@@ -2696,3 +2697,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
