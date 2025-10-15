@@ -18,6 +18,7 @@ import concurrent.futures
 from typing import List, Dict, Tuple, Set
 import hashlib
 import time
+from collections import Counter
 
 works = Works()
 
@@ -525,6 +526,8 @@ def extract_metadata_sync(doi):
         title = ''
         if 'title' in result and result['title']:
             title = clean_text(result['title'][0])
+            # Дополнительная очистка от тегов sub, i, SUB
+            title = re.sub(r'</?sub>|</?i>|</?SUB>|</?I>', '', title, flags=re.IGNORECASE)
         
         journal = ''
         if 'container-title' in result and result['container-title']:
@@ -1144,8 +1147,8 @@ def format_cta_reference(metadata, style_config, for_preview=False):
         # Страницы
         elements.append((pages_formatted, False, False, ". doi:", False, None))
         
-        # DOI
-        elements.append((metadata['doi'], False, False, "", False, None))
+        # DOI - всегда как гиперссылка в стиле CTA
+        elements.append((metadata['doi'], False, False, "", True, metadata['doi']))
         
         return elements, False
 
@@ -1158,6 +1161,11 @@ def apply_blue_background(run):
     shd = OxmlElement('w:shd')
     shd.set(qn('w:fill'), 'E6F3FF')  # Светло-синий цвет
     run._element.get_or_add_rPr().append(shd)
+
+def apply_red_color(run):
+    color = OxmlElement('w:color')
+    color.set(qn('w:val'), 'FF0000')
+    run._element.get_or_add_rPr().append(color)
 
 def find_duplicate_references(formatted_refs):
     """Находит дубликаты ссылок и возвращает информацию о них"""
@@ -1181,6 +1189,100 @@ def find_duplicate_references(formatted_refs):
             seen_hashes[ref_hash] = i
     
     return duplicates_info
+
+def generate_statistics(formatted_refs):
+    """Генерирует статистику по ссылкам"""
+    # Собираем данные
+    journals = []
+    years = []
+    authors = []
+    
+    current_year = datetime.now().year
+    
+    for _, _, metadata in formatted_refs:
+        if not metadata:
+            continue
+            
+        # Журналы
+        if metadata.get('journal'):
+            journals.append(metadata['journal'])
+        
+        # Годы
+        if metadata.get('year'):
+            years.append(metadata['year'])
+        
+        # Авторы
+        if metadata.get('authors'):
+            for author in metadata['authors']:
+                given = author.get('given', '')
+                family = author.get('family', '')
+                if family:
+                    # Форматируем автора как "Surname FirstInitial"
+                    first_initial = given[0] if given else ''
+                    author_formatted = f"{family} {first_initial}." if first_initial else family
+                    authors.append(author_formatted)
+    
+    # Уникальные DOI (без дубликатов)
+    unique_dois = set()
+    for _, _, metadata in formatted_refs:
+        if metadata and metadata.get('doi'):
+            unique_dois.add(metadata['doi'])
+    
+    total_unique_dois = len(unique_dois)
+    
+    # Статистика журналов
+    journal_counter = Counter(journals)
+    journal_stats = []
+    for journal, count in journal_counter.most_common(20):
+        percentage = (count / total_unique_dois) * 100 if total_unique_dois > 0 else 0
+        journal_stats.append({
+            'journal': journal,
+            'count': count,
+            'percentage': round(percentage, 2)
+        })
+    
+    # Статистика годов
+    year_counter = Counter(years)
+    year_stats = []
+    # Сортируем годы от текущего к 2010
+    for year in range(current_year, 2009, -1):
+        if year in year_counter:
+            count = year_counter[year]
+            percentage = (count / total_unique_dois) * 100 if total_unique_dois > 0 else 0
+            year_stats.append({
+                'year': year,
+                'count': count,
+                'percentage': round(percentage, 2)
+            })
+    
+    # Проверка актуальности (последние 4 года)
+    recent_years = [current_year - i for i in range(4)]
+    recent_count = sum(year_counter.get(year, 0) for year in recent_years)
+    recent_percentage = (recent_count / total_unique_dois) * 100 if total_unique_dois > 0 else 0
+    needs_more_recent_references = recent_percentage < 20
+    
+    # Статистика авторов
+    author_counter = Counter(authors)
+    author_stats = []
+    for author, count in author_counter.most_common(20):
+        percentage = (count / total_unique_dois) * 100 if total_unique_dois > 0 else 0
+        author_stats.append({
+            'author': author,
+            'count': count,
+            'percentage': round(percentage, 2)
+        })
+    
+    # Проверка частоты авторов
+    has_frequent_author = any(stats['percentage'] > 30 for stats in author_stats)
+    
+    return {
+        'journal_stats': journal_stats,
+        'year_stats': year_stats,
+        'author_stats': author_stats,
+        'total_unique_dois': total_unique_dois,
+        'needs_more_recent_references': needs_more_recent_references,
+        'has_frequent_author': has_frequent_author
+    }
 
 def process_references_with_progress(references, style_config, progress_container, status_container):
     """Обрабатывает список ссылок с отображением прогресса"""
@@ -1283,11 +1385,15 @@ def process_docx(input_file, style_config, progress_container, status_container)
         references, style_config, progress_container, status_container
     )
     
+    # Генерируем статистику
+    statistics = generate_statistics(formatted_refs)
+    
     # Создаем новый DOCX документ с отформатированными ссылками
     output_doc = Document()
     
-    # Измененный заголовок согласно требованию 1
+    # Измененный заголовок согласно требованию 1 и 4
     output_doc.add_paragraph('Citation Style Construction / developed by daM©')
+    output_doc.add_paragraph('See short stats after the References section')
     output_doc.add_heading('References', level=1)
     
     for i, (elements, is_error, metadata) in enumerate(formatted_refs):
@@ -1365,11 +1471,90 @@ def process_docx(input_file, style_config, progress_container, status_container)
                 if style_config['final_punctuation'] and not is_error:
                     para.add_run(".")
     
+    # Добавляем раздел Stats согласно требованию 5
+    output_doc.add_heading('Stats', level=1)
+    
+    # Таблица Journal Frequency
+    output_doc.add_heading('Journal Frequency', level=2)
+    journal_table = output_doc.add_table(rows=1, cols=3)
+    journal_table.style = 'Table Grid'
+    
+    # Заголовки таблицы
+    hdr_cells = journal_table.rows[0].cells
+    hdr_cells[0].text = 'Journal Name'
+    hdr_cells[1].text = 'Count'
+    hdr_cells[2].text = 'Percentage (%)'
+    
+    # Данные таблицы
+    for journal_stat in statistics['journal_stats']:
+        row_cells = journal_table.add_row().cells
+        row_cells[0].text = journal_stat['journal']
+        row_cells[1].text = str(journal_stat['count'])
+        row_cells[2].text = str(journal_stat['percentage'])
+    
+    # Пустая строка между таблицами
+    output_doc.add_paragraph()
+    
+    # Таблица Year Distribution
+    output_doc.add_heading('Year Distribution', level=2)
+    
+    # Добавляем предупреждение если нужно согласно требованию 6
+    if statistics['needs_more_recent_references']:
+        warning_para = output_doc.add_paragraph()
+        warning_run = warning_para.add_run("To improve the relevance and significance of the research, consider including more recent references published within the last 3-4 years")
+        apply_red_color(warning_run)
+        output_doc.add_paragraph()
+    
+    year_table = output_doc.add_table(rows=1, cols=3)
+    year_table.style = 'Table Grid'
+    
+    # Заголовки таблицы
+    hdr_cells = year_table.rows[0].cells
+    hdr_cells[0].text = 'Year'
+    hdr_cells[1].text = 'Count'
+    hdr_cells[2].text = 'Percentage (%)'
+    
+    # Данные таблицы
+    for year_stat in statistics['year_stats']:
+        row_cells = year_table.add_row().cells
+        row_cells[0].text = str(year_stat['year'])
+        row_cells[1].text = str(year_stat['count'])
+        row_cells[2].text = str(year_stat['percentage'])
+    
+    # Пустая строка между таблицами
+    output_doc.add_paragraph()
+    
+    # Таблица Author Distribution
+    output_doc.add_heading('Author Distribution', level=2)
+    
+    # Добавляем предупреждение если нужно согласно требованию 7
+    if statistics['has_frequent_author']:
+        warning_para = output_doc.add_paragraph()
+        warning_run = warning_para.add_run("The author(s) are referenced frequently. Either reduce the number of references to the author(s), or expand the reference list to include more sources")
+        apply_red_color(warning_run)
+        output_doc.add_paragraph()
+    
+    author_table = output_doc.add_table(rows=1, cols=3)
+    author_table.style = 'Table Grid'
+    
+    # Заголовки таблицы
+    hdr_cells = author_table.rows[0].cells
+    hdr_cells[0].text = 'Author'
+    hdr_cells[1].text = 'Count'
+    hdr_cells[2].text = 'Percentage (%)'
+    
+    # Данные таблицы
+    for author_stat in statistics['author_stats']:
+        row_cells = author_table.add_row().cells
+        row_cells[0].text = author_stat['author']
+        row_cells[1].text = str(author_stat['count'])
+        row_cells[2].text = str(author_stat['percentage'])
+    
     output_doc_buffer = io.BytesIO()
     output_doc.save(output_doc_buffer)
     output_doc_buffer.seek(0)
     
-    return formatted_refs, txt_bytes, output_doc_buffer, doi_found_count, doi_not_found_count
+    return formatted_refs, txt_bytes, output_doc_buffer, doi_found_count, doi_not_found_count, statistics
 
 def export_style(style_config, file_name):
     """Экспорт стиля в JSON файл"""
@@ -2179,7 +2364,7 @@ def main():
                         return
                     
                     with st.spinner(get_text('processing')):
-                        formatted_refs, txt_bytes, output_doc_buffer, doi_found_count, doi_not_found_count = process_docx(
+                        formatted_refs, txt_bytes, output_doc_buffer, doi_found_count, doi_not_found_count, statistics = process_docx(
                             uploaded_file, style_config, progress_container, status_container
                         )
                 else:
@@ -2195,11 +2380,15 @@ def main():
                             references, style_config, progress_container, status_container
                         )
                         
+                        # Генерируем статистику
+                        statistics = generate_statistics(formatted_refs)
+                        
                         # Создаем DOCX документ для текстового ввода
                         output_doc = Document()
                         
-                        # Измененный заголовок согласно требованию 1
+                        # Измененный заголовок согласно требованию 1 и 4
                         output_doc.add_paragraph('Citation Style Construction / developed by daM©')
+                        output_doc.add_paragraph('See short stats after the References section')
                         output_doc.add_heading('References', level=1)
                         
                         for i, (elements, is_error, metadata) in enumerate(formatted_refs):
@@ -2266,6 +2455,85 @@ def main():
                                 
                                 if style_config['final_punctuation'] and not is_error:
                                     para.add_run(".")
+                        
+                        # Добавляем раздел Stats согласно требованию 5
+                        output_doc.add_heading('Stats', level=1)
+                        
+                        # Таблица Journal Frequency
+                        output_doc.add_heading('Journal Frequency', level=2)
+                        journal_table = output_doc.add_table(rows=1, cols=3)
+                        journal_table.style = 'Table Grid'
+                        
+                        # Заголовки таблицы
+                        hdr_cells = journal_table.rows[0].cells
+                        hdr_cells[0].text = 'Journal Name'
+                        hdr_cells[1].text = 'Count'
+                        hdr_cells[2].text = 'Percentage (%)'
+                        
+                        # Данные таблицы
+                        for journal_stat in statistics['journal_stats']:
+                            row_cells = journal_table.add_row().cells
+                            row_cells[0].text = journal_stat['journal']
+                            row_cells[1].text = str(journal_stat['count'])
+                            row_cells[2].text = str(journal_stat['percentage'])
+                        
+                        # Пустая строка между таблицами
+                        output_doc.add_paragraph()
+                        
+                        # Таблица Year Distribution
+                        output_doc.add_heading('Year Distribution', level=2)
+                        
+                        # Добавляем предупреждение если нужно согласно требованию 6
+                        if statistics['needs_more_recent_references']:
+                            warning_para = output_doc.add_paragraph()
+                            warning_run = warning_para.add_run("To improve the relevance and significance of the research, consider including more recent references published within the last 3-4 years")
+                            apply_red_color(warning_run)
+                            output_doc.add_paragraph()
+                        
+                        year_table = output_doc.add_table(rows=1, cols=3)
+                        year_table.style = 'Table Grid'
+                        
+                        # Заголовки таблицы
+                        hdr_cells = year_table.rows[0].cells
+                        hdr_cells[0].text = 'Year'
+                        hdr_cells[1].text = 'Count'
+                        hdr_cells[2].text = 'Percentage (%)'
+                        
+                        # Данные таблицы
+                        for year_stat in statistics['year_stats']:
+                            row_cells = year_table.add_row().cells
+                            row_cells[0].text = str(year_stat['year'])
+                            row_cells[1].text = str(year_stat['count'])
+                            row_cells[2].text = str(year_stat['percentage'])
+                        
+                        # Пустая строка между таблицами
+                        output_doc.add_paragraph()
+                        
+                        # Таблица Author Distribution
+                        output_doc.add_heading('Author Distribution', level=2)
+                        
+                        # Добавляем предупреждение если нужно согласно требованию 7
+                        if statistics['has_frequent_author']:
+                            warning_para = output_doc.add_paragraph()
+                            warning_run = warning_para.add_run("The author(s) are referenced frequently. Either reduce the number of references to the author(s), or expand the reference list to include more sources")
+                            apply_red_color(warning_run)
+                            output_doc.add_paragraph()
+                        
+                        author_table = output_doc.add_table(rows=1, cols=3)
+                        author_table.style = 'Table Grid'
+                        
+                        # Заголовки таблицы
+                        hdr_cells = author_table.rows[0].cells
+                        hdr_cells[0].text = 'Author'
+                        hdr_cells[1].text = 'Count'
+                        hdr_cells[2].text = 'Percentage (%)'
+                        
+                        # Данные таблицы
+                        for author_stat in statistics['author_stats']:
+                            row_cells = author_table.add_row().cells
+                            row_cells[0].text = author_stat['author']
+                            row_cells[1].text = str(author_stat['count'])
+                            row_cells[2].text = str(author_stat['percentage'])
                         
                         output_doc_buffer = io.BytesIO()
                         output_doc.save(output_doc_buffer)
@@ -2357,7 +2625,7 @@ def main():
                     st.download_button(
                         label=get_text('references_docx'),
                         data=st.session_state.download_data['output_doc_buffer'],
-                        file_name='references_custom.docx',
+                        file_name='Reformatted references.docx',  # Изменено согласно требованию 3
                         mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                         key="docx_download",
                         use_container_width=True
