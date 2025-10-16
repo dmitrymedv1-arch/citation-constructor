@@ -2632,21 +2632,39 @@ def main():
                 st.session_state[key] = default
         
         # Настройки нумерации
+        numbering_options = ["No numbering", "1", "1.", "1)", "(1)", "[1]"]
+        current_num = st.session_state.num
+        try:
+            num_index = numbering_options.index(current_num)
+        except ValueError:
+            num_index = 0
+            st.session_state.num = numbering_options[0]
+
         numbering_style = st.selectbox(
             get_text('numbering_style'), 
-            ["No numbering", "1", "1.", "1)", "(1)", "[1]"], 
+            numbering_options, 
             key="num", 
-            index=["No numbering", "1", "1.", "1)", "(1)", "[1]"].index(st.session_state.num)
+            index=num_index
         )
         
         # Настройки авторов в одной строке
         col_authors = st.columns([1, 1, 1])
         with col_authors[0]:
+            author_options = ["AA Smith", "A.A. Smith", "Smith AA", "Smith A.A", "Smith, A.A."]
+            # Безопасное получение индекса
+            current_auth = st.session_state.auth
+            try:
+                auth_index = author_options.index(current_auth)
+            except ValueError:
+                # Если значение не найдено, используем значение по умолчанию
+                auth_index = 0
+                st.session_state.auth = author_options[0]  # Обновляем session_state
+
             author_format = st.selectbox(
                 get_text('author_format'), 
-                ["AA Smith", "A.A. Smith", "Smith AA", "Smith A.A", "Smith, A.A."], 
+                author_options, 
                 key="auth", 
-                index=["AA Smith", "A.A. Smith", "Smith AA", "Smith A.A", "Smith, A.A."].index(st.session_state.auth)
+                index=auth_index
             )
         with col_authors[1]:
             author_separator = st.selectbox(
@@ -2703,18 +2721,19 @@ def main():
         )
         
         # Настройки страниц
-        page_options = ["122 - 128", "122-128", "122 – 128", "122–128", "122–8", "122"]
-        # Безопасное получение индекса для page_format
-        current_page = st.session_state.page
-        page_index = 3  # Значение по умолчанию "122–128"
-        if current_page in page_options:
-            page_index = page_options.index(current_page)
-        
-        page_format = st.selectbox(
-            get_text('page_format'), 
-            page_options, 
-            key="page", 
-            index=page_index
+        doi_options = ["10.10/xxx", "doi:10.10/xxx", "DOI:10.10/xxx", "https://dx.doi.org/10.10/xxx"]
+        current_doi = st.session_state.doi
+        try:
+            doi_index = doi_options.index(current_doi)
+        except ValueError:
+            doi_index = 0
+            st.session_state.doi = doi_options[0]
+
+        doi_format = st.selectbox(
+            get_text('doi_format'), 
+            doi_options, 
+            key="doi", 
+            index=doi_index
         )
         
         # Настройки DOI в одной строке
@@ -2734,11 +2753,19 @@ def main():
             )
         
         # Конечная пунктуация
+        punct_options = ["", "."]
+        current_punct = st.session_state.punct
+        try:
+            punct_index = punct_options.index(current_punct)
+        except ValueError:
+            punct_index = 0
+            st.session_state.punct = punct_options[0]
+
         final_punctuation = st.selectbox(
             get_text('final_punctuation'), 
-            ["", "."], 
+            punct_options, 
             key="punct", 
-            index=["", "."].index(st.session_state.punct)
+            index=punct_index
         )
 
     with col2:
@@ -3524,6 +3551,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
