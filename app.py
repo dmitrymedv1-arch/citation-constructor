@@ -15,7 +15,7 @@ from docx.oxml import OxmlElement
 import base64
 import html
 import concurrent.futures
-from typing import List, Dict, Tuple, Set
+from typing import List, Dict, Tuple, Set, Any, Optional
 import hashlib
 import time
 from collections import Counter
@@ -166,6 +166,14 @@ TRANSLATIONS = {
     }
 }
 
+# Константы для стилей
+NUMBERING_STYLES = ["No numbering", "1", "1.", "1)", "(1)", "[1]"]
+AUTHOR_FORMATS = ["AA Smith", "A.A. Smith", "Smith AA", "Smith A.A", "Smith, A.A."]
+PAGE_FORMATS = ["122 - 128", "122-128", "122 – 128", "122–128", "122–8", "122"]
+DOI_FORMATS = ["10.10/xxx", "doi:10.10/xxx", "DOI:10.10/xxx", "https://dx.doi.org/10.10/xxx"]
+JOURNAL_STYLES = ["{Full Journal Name}", "{J. Abbr.}", "{J Abbr}"]
+AVAILABLE_ELEMENTS = ["", "Authors", "Title", "Journal", "Year", "Volume", "Issue", "Pages", "DOI"]
+
 # Хранение текущего языка
 if 'current_language' not in st.session_state:
     st.session_state.current_language = 'en'
@@ -291,6 +299,843 @@ class JournalAbbreviation:
 
 # Инициализация системы сокращений
 journal_abbrev = JournalAbbreviation()
+
+class BaseCitationFormatter:
+    """Базовый класс для форматирования цитирования"""
+    
+    def __init__(self, style_config: Dict[str, Any]):
+        self.style_config = style_config
+    
+    def format_authors(self, authors: List[Dict[str, str]]) -> str:
+        """Форматирует список авторов"""
+        if not authors:
+            return ""
+        
+        author_format = self.style_config['author_format']
+        separator = self.style_config['author_separator']
+        et_al_limit = self.style_config['et_al_limit']
+        use_and_bool = self.style_config['use_and_bool']
+        use_ampersand_bool = self.style_config['use_ampersand_bool']
+        
+        author_str = ""
+        
+        # Определяем лимит авторов для отображения
+        if use_and_bool or use_ampersand_bool:
+            limit = len(authors)
+        else:
+            limit = et_al_limit if et_al_limit and et_al_limit > 0 else len(authors)
+        
+        for i, author in enumerate(authors[:limit]):
+            given = author['given']
+            family = author['family']
+            
+            # Извлекаем инициалы
+            initials = given.split()[:2]
+            first_initial = initials[0][0] if initials else ''
+            second_initial = initials[1][0].upper() if len(initials) > 1 else ''
+            
+            # Форматируем автора в зависимости от выбранного формата
+            if author_format == "AA Smith":
+                formatted_author = f"{first_initial}{second_initial} {family}"
+            elif author_format == "A.A. Smith":
+                if second_initial:
+                    formatted_author = f"{first_initial}.{second_initial}. {family}"
+                else:
+                    formatted_author = f"{first_initial}. {family}"
+            elif author_format == "Smith AA":
+                formatted_author = f"{family} {first_initial}{second_initial}"
+            elif author_format == "Smith A.A":
+                if second_initial:
+                    formatted_author = f"{family} {first_initial}.{second_initial}."
+                else:
+                    formatted_author = f"{family} {first_initial}."
+            elif author_format == "Smith, A.A.":
+                if second_initial:
+                    formatted_author = f"{family}, {first_initial}.{second_initial}."
+                else:
+                    formatted_author = f"{family}, {first_initial}."
+            else:
+                formatted_author = f"{first_initial}. {family}"
+            
+            author_str += formatted_author
+            
+            # Добавляем разделитель между авторов
+            if i < len(authors[:limit]) - 1:
+                if i == len(authors[:limit]) - 2 and (use_and_bool or use_ampersand_bool):
+                    # Используем "and" или "&" в зависимости от выбора
+                    if use_and_bool:
+                        author_str += " and "
+                    else:  # use_ampersand_bool
+                        author_str += " & "
+                else:
+                    author_str += separator
+        
+        # Добавляем "et al" если нужно
+        if et_al_limit and len(authors) > et_al_limit and not (use_and_bool or use_ampersand_bool):
+            author_str += " et al"
+        
+        return author_str.strip()
+    
+    def format_pages(self, pages: str, article_number: str, style_type: str = "default") -> str:
+        """Форматирует страницы в зависимости от стиля"""
+        page_format = self.style_config['page_format']
+        
+        if pages:
+            if style_type == "rsc":
+                # Для RSC стиля берем только первую страницу
+                if '-' in pages:
+                    first_page = pages.split('-')[0].strip()
+                    return first_page
+                else:
+                    return pages.strip()
+            elif style_type == "cta":
+                # Для стиля CTA сокращаем диапазон страниц (6441–6 вместо 6441–6446)
+                if '-' in pages:
+                    start, end = pages.split('-')
+                    start = start.strip()
+                    end = end.strip()
+                    
+                    # Сокращаем конечную страницу если возможно
+                    if len(start) == len(end) and start[:-1] == end[:-1]:
+                        return f"{start}–{end[-1]}"
+                    elif len(start) > 1 and len(end) > 1 and start[:-2] == end[:-2]:
+                        return f"{start}–{end[-2:]}"
+                    else:
+                        return f"{start}–{end}"
+                else:
+                    return pages.strip()
+            else:
+                # Для других стилей используем стандартное форматирование
+                if '-' not in pages:
+                    return pages
+                
+                start, end = pages.split('-')
+                start = start.strip()
+                end = end.strip()
+                
+                if page_format == "122 - 128":
+                    return f"{start} - {end}"
+                elif page_format == "122-128":
+                    return f"{start}-{end}"
+                elif page_format == "122 – 128":
+                    return f"{start} – {end}"
+                elif page_format == "122–128":
+                    return f"{start}–{end}"
+                elif page_format == "122–8":
+                    i = 0
+                    while i < len(start) and i < len(end) and start[i] == end[i]:
+                        i += 1
+                    return f"{start}–{end[i:]}"
+        
+        # Если страниц нет, используем номер статьи
+        return article_number
+    
+    def format_doi(self, doi: str) -> Tuple[str, str]:
+        """Форматирует DOI и возвращает текст и URL"""
+        doi_format = self.style_config['doi_format']
+        
+        if doi_format == "10.10/xxx":
+            value = doi
+        elif doi_format == "doi:10.10/xxx":
+            value = f"doi:{doi}"
+        elif doi_format == "DOI:10.10/xxx":
+            value = f"DOI:{doi}"
+        elif doi_format == "https://dx.doi.org/10.10/xxx":
+            value = f"https://dx.doi.org/{doi}"
+        else:
+            value = doi
+        
+        return value, f"https://doi.org/{doi}"
+    
+    def format_journal_name(self, journal_name: str) -> str:
+        """Форматирует название журнала с учетом выбранного стиля"""
+        journal_style = self.style_config.get('journal_style', '{Full Journal Name}')
+        return journal_abbrev.abbreviate_journal_name(journal_name, journal_style)
+
+class CustomCitationFormatter(BaseCitationFormatter):
+    """Форматировщик для пользовательских стилей"""
+    
+    def format_reference(self, metadata: Dict[str, Any], for_preview: bool = False) -> Tuple[Any, bool]:
+        """Форматирует ссылку в пользовательском стиле"""
+        if not metadata:
+            error_message = "Ошибка: Не удалось отформатировать ссылку." if st.session_state.current_language == 'ru' else "Error: Could not format the reference."
+            return (error_message, True)
+        
+        elements = []
+        
+        for i, (element, config) in enumerate(self.style_config['elements']):
+            value = ""
+            doi_value = None
+            
+            if element == "Authors":
+                value = self.format_authors(metadata['authors'])
+            elif element == "Title":
+                value = metadata['title']
+            elif element == "Journal":
+                value = self.format_journal_name(metadata['journal'])
+            elif element == "Year":
+                value = str(metadata['year']) if metadata['year'] else ""
+            elif element == "Volume":
+                value = metadata['volume']
+            elif element == "Issue":
+                value = metadata['issue']
+            elif element == "Pages":
+                value = self.format_pages(metadata['pages'], metadata['article_number'])
+            elif element == "DOI":
+                doi = metadata['doi']
+                doi_value = doi
+                value, _ = self.format_doi(doi)
+            
+            if value:
+                # Добавляем скобки если нужно
+                if config['parentheses'] and value:
+                    value = f"({value})"
+                
+                # Добавляем разделитель
+                separator = config['separator'] if i < len(self.style_config['elements']) - 1 else ''
+                
+                if for_preview:
+                    # Для предпросмотра используем HTML-теги
+                    formatted_value = value
+                    if config['italic']:
+                        formatted_value = f"<i>{formatted_value}</i>"
+                    if config['bold']:
+                        formatted_value = f"<b>{formatted_value}</b>"
+                    
+                    elements.append((formatted_value, False, False, separator, False, None))
+                else:
+                    # Для реального документа сохраняем информацию о форматировании
+                    elements.append((value, config['italic'], config['bold'], separator,
+                                   (element == "DOI" and self.style_config['doi_hyperlink']), doi_value))
+        
+        if for_preview:
+            # Собираем строку для предпросмотра
+            ref_str = ""
+            for i, (value, _, _, separator, _, _) in enumerate(elements):
+                ref_str += value
+                if separator and i < len(elements) - 1:
+                    ref_str += separator
+                elif i == len(elements) - 1 and self.style_config['final_punctuation']:
+                    ref_str = ref_str.rstrip(',.') + "."
+            
+            # Убираем двойные точки
+            ref_str = re.sub(r'\.\.+', '.', ref_str)
+            
+            return ref_str, False
+        else:
+            return elements, False
+
+class GOSTCitationFormatter(BaseCitationFormatter):
+    """Форматировщик для стиля ГОСТ"""
+    
+    def format_reference(self, metadata: Dict[str, Any], for_preview: bool = False) -> Tuple[Any, bool]:
+        """Форматирует ссылку по стандарту ГОСТ"""
+        if not metadata:
+            error_message = "Ошибка: Не удалось отформатировать ссылку." if st.session_state.current_language == 'ru' else "Error: Could not format the reference."
+            return (error_message, True)
+        
+        # Форматируем первого автора для основной части
+        first_author = ""
+        if metadata['authors']:
+            author = metadata['authors'][0]
+            given = author['given']
+            family = author['family']
+            initials = given.split()[:2]
+            first_initial = initials[0][0] if initials else ''
+            second_initial = initials[1][0].upper() if len(initials) > 1 else ''
+            
+            if second_initial:
+                first_author = f"{family}, {first_initial}.{second_initial}."
+            else:
+                first_author = f"{family}, {first_initial}."
+        
+        # Форматируем всех авторов для части после /
+        all_authors = ""
+        for i, author in enumerate(metadata['authors']):
+            given = author['given']
+            family = author['family']
+            initials = given.split()[:2]
+            first_initial = initials[0][0] if initials else ''
+            second_initial = initials[1][0].upper() if len(initials) > 1 else ''
+            
+            if second_initial:
+                author_str = f"{first_initial}.{second_initial}. {family}"
+            else:
+                author_str = f"{first_initial}. {family}"
+            
+            all_authors += author_str
+            if i < len(metadata['authors']) - 1:
+                all_authors += ", "
+        
+        # Форматируем страницы с использованием длинного тире вместо дефиса
+        pages = metadata['pages']
+        article_number = metadata['article_number']
+        
+        # Определяем язык и устанавливаем метки для томов/страниц/статей
+        is_russian = st.session_state.current_language == 'ru'
+        volume_label = "Т." if is_russian else "Vol."
+        page_label = "С." if is_russian else "P."
+        article_label = "Арт." if is_russian else "Art."
+        issue_label = "№" if is_russian else "No."
+        
+        # Форматируем DOI
+        doi_url = f"https://doi.org/{metadata['doi']}"
+        
+        # Для ГОСТ используем полное название журнала (без сокращений)
+        journal_name = metadata['journal']
+        
+        # Строим ссылку ГОСТ с номером выпуска, если доступно
+        if metadata['issue']:
+            gost_ref = f"{first_author} {metadata['title']} / {all_authors} // {journal_name}. – {metadata['year']}. – {volume_label} {metadata['volume']}. – {issue_label} {metadata['issue']}."
+        else:
+            gost_ref = f"{first_author} {metadata['title']} / {all_authors} // {journal_name}. – {metadata['year']}. – {volume_label} {metadata['volume']}."
+        
+        # Добавляем страницы или номер статьи
+        if pages:
+            if '-' in pages:
+                start_page, end_page = pages.split('-')
+                pages = f"{start_page.strip()}–{end_page.strip()}"  # Используем длинное тире
+            else:
+                pages = pages.strip()
+            gost_ref += f" – {page_label} {pages}."
+        elif article_number:
+            gost_ref += f" – {article_label} {article_number}."
+        else:
+            if is_russian:
+                gost_ref += " – [Без пагинации]."
+            else:
+                gost_ref += " – [No pagination]."
+        
+        # Добавляем DOI
+        gost_ref += f" – {doi_url}"
+        
+        if for_preview:
+            return gost_ref, False
+        else:
+            # Для реального документа возвращаем как несколько элементов с DOI как гиперссылкой
+            elements = []
+            
+            # Добавляем весь текст до DOI как обычный текст
+            text_before_doi = gost_ref.replace(doi_url, "")
+            elements.append((text_before_doi, False, False, "", False, None))
+            
+            # Добавляем DOI как гиперссылку
+            elements.append((doi_url, False, False, "", True, metadata['doi']))
+            
+            return elements, False
+
+class ACSCitationFormatter(BaseCitationFormatter):
+    """Форматировщик для стиля ACS (MDPI)"""
+    
+    def format_reference(self, metadata: Dict[str, Any], for_preview: bool = False) -> Tuple[Any, bool]:
+        """Форматирует ссылку в стиле ACS (MDPI)"""
+        if not metadata:
+            error_message = "Ошибка: Не удалось отформатировать ссылку." if st.session_state.current_language == 'ru' else "Error: Could not format the reference."
+            return (error_message, True)
+        
+        # Форматируем авторов в стиле ACS: Surname, I.I.; Surname, I.I.; ...
+        authors_str = ""
+        for i, author in enumerate(metadata['authors']):
+            given = author['given']
+            family = author['family']
+            
+            # Извлекаем инициалы
+            initials = given.split()[:2]
+            first_initial = initials[0][0] if initials else ''
+            second_initial = initials[1][0].upper() if len(initials) > 1 else ''
+            
+            # Форматируем автора: Surname, I.I.
+            if second_initial:
+                author_str = f"{family}, {first_initial}.{second_initial}."
+            else:
+                author_str = f"{family}, {first_initial}."
+            
+            authors_str += author_str
+            
+            # Добавляем разделитель
+            if i < len(metadata['authors']) - 1:
+                authors_str += "; "
+        
+        # Форматируем страницы
+        pages = metadata['pages']
+        article_number = metadata['article_number']
+        
+        if pages:
+            if '-' in pages:
+                start_page, end_page = pages.split('-')
+                start_page = start_page.strip()
+                end_page = end_page.strip()
+                # Используем короткий формат для конечной страницы если возможно
+                if len(start_page) == len(end_page) and start_page[:-1] == end_page[:-1]:
+                    pages_formatted = f"{start_page}−{end_page[-1]}"
+                else:
+                    pages_formatted = f"{start_page}−{end_page}"
+            else:
+                pages_formatted = pages
+        elif article_number:
+            pages_formatted = article_number
+        else:
+            pages_formatted = ""
+        
+        # Применяем сокращение названия журнала для стиля ACS
+        journal_name = self.format_journal_name(metadata['journal'])
+        
+        # Собираем ссылку ACS
+        acs_ref = f"{authors_str} {metadata['title']}. {journal_name} {metadata['year']}, {metadata['volume']}, {pages_formatted}."
+        
+        # Убираем двойные точки
+        acs_ref = re.sub(r'\.\.+', '.', acs_ref)
+        
+        if for_preview:
+            return acs_ref, False
+        else:
+            # Для реального документа разбиваем на элементы с форматированием
+            elements = []
+            
+            # Авторы
+            elements.append((authors_str, False, False, " ", False, None))
+            
+            # Название
+            elements.append((metadata['title'], False, False, ". ", False, None))
+            
+            # Журнал (курсив)
+            elements.append((journal_name, True, False, " ", False, None))
+            
+            # Год (жирный)
+            elements.append((str(metadata['year']), False, True, ", ", False, None))
+            
+            # Том (курсив)
+            elements.append((metadata['volume'], True, False, ", ", False, None))
+            
+            # Страницы
+            elements.append((pages_formatted, False, False, ".", False, None))
+            
+            return elements, False
+
+class RSCCitationFormatter(BaseCitationFormatter):
+    """Форматировщик для стиля RSC"""
+    
+    def format_reference(self, metadata: Dict[str, Any], for_preview: bool = False) -> Tuple[Any, bool]:
+        """Форматирует ссылку в стиле RSC"""
+        if not metadata:
+            error_message = "Ошибка: Не удалось отформатировать ссылку." if st.session_state.current_language == 'ru' else "Error: Could not format the reference."
+            return (error_message, True)
+        
+        # Форматируем авторов в стиле RSC: I.I. Surname, I.I. Surname, ... and I.I. Surname
+        authors_str = ""
+        for i, author in enumerate(metadata['authors']):
+            given = author['given']
+            family = author['family']
+            
+            # Извлекаем инициалы
+            initials = given.split()[:2]
+            first_initial = initials[0][0] if initials else ''
+            second_initial = initials[1][0].upper() if len(initials) > 1 else ''
+            
+            # Форматируем автора: I.I. Surname
+            if second_initial:
+                author_str = f"{first_initial}.{second_initial}. {family}"
+            else:
+                author_str = f"{first_initial}. {family}"
+            
+            authors_str += author_str
+            
+            # Добавляем разделитель
+            if i < len(metadata['authors']) - 1:
+                if i == len(metadata['authors']) - 2:
+                    authors_str += " and "
+                else:
+                    authors_str += ", "
+        
+        # Форматируем страницы - для RSC берем только первую страницу
+        pages = metadata['pages']
+        article_number = metadata['article_number']
+        
+        if pages:
+            # Для RSC стиля берем только первую страницу
+            if '-' in pages:
+                first_page = pages.split('-')[0].strip()
+                pages_formatted = first_page
+            else:
+                pages_formatted = pages.strip()
+        elif article_number:
+            pages_formatted = article_number
+        else:
+            pages_formatted = ""
+        
+        # Применяем сокращение названия журнала для стиля RSC
+        journal_name = self.format_journal_name(metadata['journal'])
+        
+        # Собираем ссылку RSC
+        rsc_ref = f"{authors_str}, {journal_name}, {metadata['year']}, {metadata['volume']}, {pages_formatted}."
+        
+        # Убираем двойные точки
+        rsc_ref = re.sub(r'\.\.+', '.', rsc_ref)
+        
+        if for_preview:
+            return rsc_ref, False
+        else:
+            # Для реального документа разбиваем на элементы с форматированием
+            elements = []
+            
+            # Авторы
+            elements.append((authors_str, False, False, ", ", False, None))
+            
+            # Журнал (курсив)
+            elements.append((journal_name, True, False, ", ", False, None))
+            
+            # Год
+            elements.append((str(metadata['year']), False, False, ", ", False, None))
+            
+            # Том (жирный)
+            elements.append((metadata['volume'], False, True, ", ", False, None))
+            
+            # Страницы (только первая страница)
+            elements.append((pages_formatted, False, False, ".", False, None))
+            
+            return elements, False
+
+class CTACitationFormatter(BaseCitationFormatter):
+    """Форматировщик для стиля CTA"""
+    
+    def format_reference(self, metadata: Dict[str, Any], for_preview: bool = False) -> Tuple[Any, bool]:
+        """Форматирует ссылку в стиле CTA"""
+        if not metadata:
+            error_message = "Ошибка: Не удалось отформатировать ссылку." if st.session_state.current_language == 'ru' else "Error: Could not format the reference."
+            return (error_message, True)
+        
+        # Форматируем авторов в стиле CTA: Surname Initials, Surname Initials, ... Surname Initials
+        authors_str = ""
+        for i, author in enumerate(metadata['authors']):
+            given = author['given']
+            family = author['family']
+            
+            # Извлекаем инициалы
+            initials = given.split()[:2]
+            first_initial = initials[0][0] if initials else ''
+            second_initial = initials[1][0].upper() if len(initials) > 1 else ''
+            
+            # Форматируем автора: Surname Initials (без точек)
+            if second_initial:
+                author_str = f"{family} {first_initial}{second_initial}"
+            else:
+                author_str = f"{family} {first_initial}"
+            
+            authors_str += author_str
+            
+            # Добавляем разделитель
+            if i < len(metadata['authors']) - 1:
+                authors_str += ", "
+        
+        # Форматируем страницы для стиля CTA (сокращаем диапазон)
+        pages = metadata['pages']
+        article_number = metadata['article_number']
+        pages_formatted = self.format_pages(pages, article_number, "cta")
+        
+        # Применяем сокращение названия журнала для стиля CTA (без точек)
+        journal_name = self.format_journal_name(metadata['journal'])
+        
+        # Форматируем номер выпуска если есть
+        issue_part = f"({metadata['issue']})" if metadata['issue'] else ""
+        
+        # Собираем ссылку CTA
+        cta_ref = f"{authors_str}. {metadata['title']}. {journal_name}. {metadata['year']};{metadata['volume']}{issue_part}:{pages_formatted}. doi:{metadata['doi']}"
+        
+        if for_preview:
+            return cta_ref, False
+        else:
+            # Для реального документа разбиваем на элементы с форматированием
+            elements = []
+            
+            # Авторы
+            elements.append((authors_str, False, False, ". ", False, None))
+            
+            # Название
+            elements.append((metadata['title'], False, False, ". ", False, None))
+            
+            # Журнал (курсив)
+            elements.append((journal_name, True, False, ". ", False, None))
+            
+            # Год
+            elements.append((str(metadata['year']), False, False, ";", False, None))
+            
+            # Том
+            elements.append((metadata['volume'], False, False, "", False, None))
+            
+            # Номер выпуска (если есть)
+            if metadata['issue']:
+                elements.append((f"({metadata['issue']})", False, False, ":", False, None))
+            else:
+                elements.append(("", False, False, ":", False, None))
+            
+            # Страницы
+            elements.append((pages_formatted, False, False, ". ", False, None))
+            
+            # DOI - всегда как гиперссылка в стиле CTA
+            doi_text = f"doi:{metadata['doi']}"
+            elements.append((doi_text, False, False, "", True, metadata['doi']))
+            
+            return elements, False
+
+class CitationFormatterFactory:
+    """Фабрика для создания форматировщиков цитирования"""
+    
+    @staticmethod
+    def create_formatter(style_config: Dict[str, Any]) -> BaseCitationFormatter:
+        """Создает соответствующий форматировщик на основе конфигурации стиля"""
+        if style_config.get('gost_style', False):
+            return GOSTCitationFormatter(style_config)
+        elif style_config.get('acs_style', False):
+            return ACSCitationFormatter(style_config)
+        elif style_config.get('rsc_style', False):
+            return RSCCitationFormatter(style_config)
+        elif style_config.get('cta_style', False):
+            return CTACitationFormatter(style_config)
+        else:
+            return CustomCitationFormatter(style_config)
+
+class DocumentGenerator:
+    """Класс для генерации DOCX документов"""
+    
+    @staticmethod
+    def add_hyperlink(paragraph, text, url):
+        """Добавляет гиперссылку в параграф"""
+        part = paragraph.part
+        r_id = part.relate_to(url, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", is_external=True)
+        
+        hyperlink = OxmlElement('w:hyperlink')
+        hyperlink.set(qn('r:id'), r_id)
+        
+        new_run = OxmlElement('w:r')
+        rPr = OxmlElement('w:rPr')
+        
+        # Синий цвет для гиперссылки
+        color = OxmlElement('w:color')
+        color.set(qn('w:val'), '0000FF')
+        rPr.append(color)
+        
+        # Подчеркивание
+        underline = OxmlElement('w:u')
+        underline.set(qn('w:val'), 'single')
+        rPr.append(underline)
+        
+        new_run.append(rPr)
+        new_text = OxmlElement('w:t')
+        new_text.text = text
+        new_run.append(new_text)
+        
+        hyperlink.append(new_run)
+        paragraph._p.append(hyperlink)
+        
+        return hyperlink
+    
+    @staticmethod
+    def apply_yellow_background(run):
+        """Применяет желтый фон к тексту"""
+        shd = OxmlElement('w:shd')
+        shd.set(qn('w:fill'), 'FFFF00')
+        run._element.get_or_add_rPr().append(shd)
+    
+    @staticmethod
+    def apply_blue_background(run):
+        """Применяет синий фон к тексту"""
+        shd = OxmlElement('w:shd')
+        shd.set(qn('w:fill'), 'E6F3FF')  # Светло-синий цвет
+        run._element.get_or_add_rPr().append(shd)
+    
+    @staticmethod
+    def apply_red_color(run):
+        """Применяет красный цвет к тексту"""
+        color = OxmlElement('w:color')
+        color.set(qn('w:val'), 'FF0000')
+        run._element.get_or_add_rPr().append(color)
+    
+    @staticmethod
+    def generate_document(formatted_refs: List[Tuple[Any, bool, Any]], 
+                         statistics: Dict[str, Any],
+                         style_config: Dict[str, Any],
+                         duplicates_info: Dict[int, int] = None) -> io.BytesIO:
+        """Генерирует DOCX документ с отформатированными ссылками и статистикой"""
+        output_doc = Document()
+        
+        # Измененный заголовок согласно требованию 1 и 4
+        output_doc.add_paragraph('Citation Style Construction / developed by daM©')
+        output_doc.add_paragraph('See short stats after the References section')
+        output_doc.add_heading('References', level=1)
+        
+        # Добавляем форматированные ссылки
+        DocumentGenerator._add_formatted_references(output_doc, formatted_refs, style_config, duplicates_info)
+        
+        # Добавляем раздел Stats согласно требованию 5
+        DocumentGenerator._add_statistics_section(output_doc, statistics)
+        
+        output_doc_buffer = io.BytesIO()
+        output_doc.save(output_doc_buffer)
+        output_doc_buffer.seek(0)
+        
+        return output_doc_buffer
+    
+    @staticmethod
+    def _add_formatted_references(doc: Document, 
+                                formatted_refs: List[Tuple[Any, bool, Any]], 
+                                style_config: Dict[str, Any],
+                                duplicates_info: Dict[int, int] = None):
+        """Добавляет форматированные ссылки в документ"""
+        for i, (elements, is_error, metadata) in enumerate(formatted_refs):
+            numbering = style_config['numbering_style']
+            
+            # Формируем префикс нумерации
+            if numbering == "No numbering":
+                prefix = ""
+            elif numbering == "1":
+                prefix = f"{i + 1} "
+            elif numbering == "1.":
+                prefix = f"{i + 1}. "
+            elif numbering == "1)":
+                prefix = f"{i + 1}) "
+            elif numbering == "(1)":
+                prefix = f"({i + 1}) "
+            elif numbering == "[1]":
+                prefix = f"[{i + 1}] "
+            else:
+                prefix = f"{i + 1}. "
+            
+            para = doc.add_paragraph(prefix)
+            
+            if is_error:
+                # Показываем оригинальный текст с желтым фоном и сообщением об ошибки
+                run = para.add_run(str(elements))
+                DocumentGenerator.apply_yellow_background(run)
+            elif duplicates_info and i in duplicates_info:
+                # Дубликат - выделяем синим и добавляем пометку
+                original_index = duplicates_info[i] + 1  # +1 потому что нумерация с 1
+                duplicate_note = get_text('duplicate_reference').format(original_index)
+                
+                if isinstance(elements, str):
+                    run = para.add_run(elements)
+                    DocumentGenerator.apply_blue_background(run)
+                    para.add_run(f" - {duplicate_note}").italic = True
+                else:
+                    for j, (value, italic, bold, separator, is_doi_hyperlink, doi_value) in enumerate(elements):
+                        if is_doi_hyperlink and doi_value:
+                            DocumentGenerator.add_hyperlink(para, value, f"https://doi.org/{doi_value}")
+                        else:
+                            run = para.add_run(value)
+                            if italic:
+                                run.font.italic = True
+                            if bold:
+                                run.font.bold = True
+                            DocumentGenerator.apply_blue_background(run)
+                        
+                        if separator and j < len(elements) - 1:
+                            para.add_run(separator)
+                    
+                    para.add_run(f" - {duplicate_note}").italic = True
+            else:
+                # Обычная ссылка
+                if metadata is None:
+                    run = para.add_run(str(elements))
+                    run.font.italic = True
+                else:
+                    for j, (value, italic, bold, separator, is_doi_hyperlink, doi_value) in enumerate(elements):
+                        if is_doi_hyperlink and doi_value:
+                            # Добавляем DOI как гиперссылку
+                            DocumentGenerator.add_hyperlink(para, value, f"https://doi.org/{doi_value}")
+                        else:
+                            run = para.add_run(value)
+                            if italic:
+                                run.font.italic = True
+                            if bold:
+                                run.font.bold = True
+                        
+                        # Добавляем разделитель между элементами
+                        if separator and j < len(elements) - 1:
+                            para.add_run(separator)
+                    
+                    # Добавляем конечную пунктуацию
+                    if style_config['final_punctuation'] and not is_error:
+                        para.add_run(".")
+    
+    @staticmethod
+    def _add_statistics_section(doc: Document, statistics: Dict[str, Any]):
+        """Добавляет раздел статистики в документ"""
+        doc.add_heading('Stats', level=1)
+        
+        # Таблица Journal Frequency
+        doc.add_heading('Journal Frequency', level=2)
+        journal_table = doc.add_table(rows=1, cols=3)
+        journal_table.style = 'Table Grid'
+        
+        # Заголовки таблицы
+        hdr_cells = journal_table.rows[0].cells
+        hdr_cells[0].text = 'Journal Name'
+        hdr_cells[1].text = 'Count'
+        hdr_cells[2].text = 'Percentage (%)'
+        
+        # Данные таблицы
+        for journal_stat in statistics['journal_stats']:
+            row_cells = journal_table.add_row().cells
+            row_cells[0].text = journal_stat['journal']
+            row_cells[1].text = str(journal_stat['count'])
+            row_cells[2].text = str(journal_stat['percentage'])
+        
+        # Пустая строка между таблицами
+        doc.add_paragraph()
+        
+        # Таблица Year Distribution
+        doc.add_heading('Year Distribution', level=2)
+        
+        # Добавляем предупреждение если нужно согласно требованию 6
+        if statistics['needs_more_recent_references']:
+            warning_para = doc.add_paragraph()
+            warning_run = warning_para.add_run("To improve the relevance and significance of the research, consider including more recent references published within the last 3-4 years")
+            DocumentGenerator.apply_red_color(warning_run)
+            doc.add_paragraph()
+        
+        year_table = doc.add_table(rows=1, cols=3)
+        year_table.style = 'Table Grid'
+        
+        # Заголовки таблицы
+        hdr_cells = year_table.rows[0].cells
+        hdr_cells[0].text = 'Year'
+        hdr_cells[1].text = 'Count'
+        hdr_cells[2].text = 'Percentage (%)'
+        
+        # Данные таблицы
+        for year_stat in statistics['year_stats']:
+            row_cells = year_table.add_row().cells
+            row_cells[0].text = str(year_stat['year'])
+            row_cells[1].text = str(year_stat['count'])
+            row_cells[2].text = str(year_stat['percentage'])
+        
+        # Пустая строка между таблицами
+        doc.add_paragraph()
+        
+        # Таблица Author Distribution
+        doc.add_heading('Author Distribution', level=2)
+        
+        # Добавляем предупреждение если нужно согласно требованию 7
+        if statistics['has_frequent_author']:
+            warning_para = doc.add_paragraph()
+            warning_run = warning_para.add_run("The author(s) are referenced frequently. Either reduce the number of references to the author(s), or expand the reference list to include more sources")
+            DocumentGenerator.apply_red_color(warning_run)
+            doc.add_paragraph()
+        
+        author_table = doc.add_table(rows=1, cols=3)
+        author_table.style = 'Table Grid'
+        
+        # Заголовки таблицы
+        hdr_cells = author_table.rows[0].cells
+        hdr_cells[0].text = 'Author'
+        hdr_cells[1].text = 'Count'
+        hdr_cells[2].text = 'Percentage (%)'
+        
+        # Данные таблицы
+        for author_stat in statistics['author_stats']:
+            row_cells = author_table.add_row().cells
+            row_cells[0].text = author_stat['author']
+            row_cells[1].text = str(author_stat['count'])
+            row_cells[2].text = str(author_stat['percentage'])
 
 def get_text(key):
     return TRANSLATIONS[st.session_state.current_language].get(key, key)
@@ -563,610 +1408,10 @@ def extract_metadata_sync(doi):
         print(f"Error extracting metadata for DOI {doi}: {e}")
         return None
 
-def format_authors(authors, author_format, separator, et_al_limit, use_and_bool, use_ampersand_bool):
-    if not authors:
-        return ""
-    
-    author_str = ""
-    
-    # Определяем лимит авторов для отображения
-    if use_and_bool or use_ampersand_bool:
-        limit = len(authors)
-    else:
-        limit = et_al_limit if et_al_limit and et_al_limit > 0 else len(authors)
-    
-    for i, author in enumerate(authors[:limit]):
-        given = author['given']
-        family = author['family']
-        
-        # Извлекаем инициалы
-        initials = given.split()[:2]
-        first_initial = initials[0][0] if initials else ''
-        second_initial = initials[1][0].upper() if len(initials) > 1 else ''
-        
-        # Форматируем автора в зависимости от выбранного формата
-        if author_format == "AA Smith":
-            formatted_author = f"{first_initial}{second_initial} {family}"
-        elif author_format == "A.A. Smith":
-            if second_initial:
-                formatted_author = f"{first_initial}.{second_initial}. {family}"
-            else:
-                formatted_author = f"{first_initial}. {family}"
-        elif author_format == "Smith AA":
-            formatted_author = f"{family} {first_initial}{second_initial}"
-        elif author_format == "Smith A.A":
-            if second_initial:
-                formatted_author = f"{family} {first_initial}.{second_initial}."
-            else:
-                formatted_author = f"{family} {first_initial}."
-        elif author_format == "Smith, A.A.":
-            if second_initial:
-                formatted_author = f"{family}, {first_initial}.{second_initial}."
-            else:
-                formatted_author = f"{family}, {first_initial}."
-        else:
-            formatted_author = f"{first_initial}. {family}"
-        
-        author_str += formatted_author
-        
-        # Добавляем разделитель между авторов
-        if i < len(authors[:limit]) - 1:
-            if i == len(authors[:limit]) - 2 and (use_and_bool or use_ampersand_bool):
-                # Используем "and" или "&" в зависимости от выбора
-                if use_and_bool:
-                    author_str += " and "
-                else:  # use_ampersand_bool
-                    author_str += " & "
-            else:
-                author_str += separator
-    
-    # Добавляем "et al" если нужно
-    if et_al_limit and len(authors) > et_al_limit and not (use_and_bool or use_ampersand_bool):
-        author_str += " et al"
-    
-    return author_str.strip()
-
-def format_pages(pages, article_number, page_format, style_type="default"):
-    """Форматирует страницы в зависимости от стиля"""
-    if pages:
-        if style_type == "rsc":
-            # Для RSC стиля берем только первую страницу
-            if '-' in pages:
-                first_page = pages.split('-')[0].strip()
-                return first_page
-            else:
-                return pages.strip()
-        elif style_type == "cta":
-            # Для стиля CTA сокращаем диапазон страниц (6441–6 вместо 6441–6446)
-            if '-' in pages:
-                start, end = pages.split('-')
-                start = start.strip()
-                end = end.strip()
-                
-                # Сокращаем конечную страницу если возможно
-                if len(start) == len(end) and start[:-1] == end[:-1]:
-                    return f"{start}–{end[-1]}"
-                elif len(start) > 1 and len(end) > 1 and start[:-2] == end[:-2]:
-                    return f"{start}–{end[-2:]}"
-                else:
-                    return f"{start}–{end}"
-            else:
-                return pages.strip()
-        else:
-            # Для других стилей используем стандартное форматирование
-            if '-' not in pages:
-                return pages
-            
-            start, end = pages.split('-')
-            start = start.strip()
-            end = end.strip()
-            
-            if page_format == "122 - 128":
-                return f"{start} - {end}"
-            elif page_format == "122-128":
-                return f"{start}-{end}"
-            elif page_format == "122 – 128":
-                return f"{start} – {end}"
-            elif page_format == "122–128":
-                return f"{start}–{end}"
-            elif page_format == "122–8":
-                i = 0
-                while i < len(start) and i < len(end) and start[i] == end[i]:
-                    i += 1
-                return f"{start}–{end[i:]}"
-    
-    # Если страниц нет, используем номер статьи
-    return article_number
-
-def add_hyperlink(paragraph, text, url):
-    part = paragraph.part
-    r_id = part.relate_to(url, "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink", is_external=True)
-    
-    hyperlink = OxmlElement('w:hyperlink')
-    hyperlink.set(qn('r:id'), r_id)
-    
-    new_run = OxmlElement('w:r')
-    rPr = OxmlElement('w:rPr')
-    
-    # Синий цвет для гиперссылки
-    color = OxmlElement('w:color')
-    color.set(qn('w:val'), '0000FF')
-    rPr.append(color)
-    
-    # Подчеркивание
-    underline = OxmlElement('w:u')
-    underline.set(qn('w:val'), 'single')
-    rPr.append(underline)
-    
-    new_run.append(rPr)
-    new_text = OxmlElement('w:t')
-    new_text.text = text
-    new_run.append(new_text)
-    
-    hyperlink.append(new_run)
-    paragraph._p.append(hyperlink)
-    
-    return hyperlink
-
 def format_reference(metadata, style_config, for_preview=False):
-    if not metadata:
-        error_message = "Ошибка: Не удалось отформатировать ссылку." if st.session_state.current_language == 'ru' else "Error: Could not format the reference."
-        return (error_message, True)
-    
-    # Проверяем, включен ли стиль ГОСТ
-    if style_config.get('gost_style', False):
-        return format_gost_reference(metadata, style_config, for_preview)
-    
-    # Проверяем, включен ли стиль ACS
-    if style_config.get('acs_style', False):
-        return format_acs_reference(metadata, style_config, for_preview)
-    
-    # Проверяем, включен ли стиль RSC
-    if style_config.get('rsc_style', False):
-        return format_rsc_reference(metadata, style_config, for_preview)
-    
-    # Проверяем, включен ли стиль CTA
-    if style_config.get('cta_style', False):
-        return format_cta_reference(metadata, style_config, for_preview)
-    
-    elements = []
-    
-    for i, (element, config) in enumerate(style_config['elements']):
-        value = ""
-        doi_value = None
-        
-        if element == "Authors":
-            value = format_authors(
-                metadata['authors'],
-                style_config['author_format'],
-                style_config['author_separator'],
-                style_config['et_al_limit'],
-                style_config['use_and_bool'],
-                style_config['use_ampersand_bool']
-            )
-        elif element == "Title":
-            value = metadata['title']
-        elif element == "Journal":
-            # Применяем сокращение названия журнала в соответствии с выбранным стилем
-            journal_name = metadata['journal']
-            journal_style = style_config.get('journal_style', '{Full Journal Name}')
-            value = journal_abbrev.abbreviate_journal_name(journal_name, journal_style)
-        elif element == "Year":
-            value = str(metadata['year']) if metadata['year'] else ""
-        elif element == "Volume":
-            value = metadata['volume']
-        elif element == "Issue":
-            value = metadata['issue']
-        elif element == "Pages":
-            value = format_pages(metadata['pages'], metadata['article_number'], style_config['page_format'])
-        elif element == "DOI":
-            doi = metadata['doi']
-            doi_value = doi
-            if style_config['doi_format'] == "10.10/xxx":
-                value = doi
-            elif style_config['doi_format'] == "doi:10.10/xxx":
-                value = f"doi:{doi}"
-            elif style_config['doi_format'] == "DOI:10.10/xxx":
-                value = f"DOI:{doi}"
-            elif style_config['doi_format'] == "https://dx.doi.org/10.10/xxx":
-                value = f"https://dx.doi.org/{doi}"
-        
-        if value:
-            # Добавляем скобки если нужно
-            if config['parentheses'] and value:
-                value = f"({value})"
-            
-            # Добавляем разделитель
-            separator = config['separator'] if i < len(style_config['elements']) - 1 else ''
-            
-            if for_preview:
-                # Для предпросмотра используем HTML-теги
-                formatted_value = value
-                if config['italic']:
-                    formatted_value = f"<i>{formatted_value}</i>"
-                if config['bold']:
-                    formatted_value = f"<b>{formatted_value}</b>"
-                
-                elements.append((formatted_value, False, False, separator, False, None))
-            else:
-                # Для реального документа сохраняем информацию о форматировании
-                elements.append((value, config['italic'], config['bold'], separator,
-                               (element == "DOI" and style_config['doi_hyperlink']), doi_value))
-    
-    if for_preview:
-        # Собираем строку для предпросмотра
-        ref_str = ""
-        for i, (value, _, _, separator, _, _) in enumerate(elements):
-            ref_str += value
-            if separator and i < len(elements) - 1:
-                ref_str += separator
-            elif i == len(elements) - 1 and style_config['final_punctuation']:
-                ref_str = ref_str.rstrip(',.') + "."
-        
-        # Убираем двойные точки
-        ref_str = re.sub(r'\.\.+', '.', ref_str)
-        
-        return ref_str, False
-    else:
-        return elements, False
-
-def format_gost_reference(metadata, style_config, for_preview=False):
-    """Форматирование ссылки по стандарту ГОСТ"""
-    if not metadata:
-        error_message = "Ошибка: Не удалось отформатировать ссылку." if st.session_state.current_language == 'ru' else "Error: Could not format the reference."
-        return (error_message, True)
-    
-    # Форматируем первого автора для основной части
-    first_author = ""
-    if metadata['authors']:
-        author = metadata['authors'][0]
-        given = author['given']
-        family = author['family']
-        initials = given.split()[:2]
-        first_initial = initials[0][0] if initials else ''
-        second_initial = initials[1][0].upper() if len(initials) > 1 else ''
-        
-        if second_initial:
-            first_author = f"{family}, {first_initial}.{second_initial}."
-        else:
-            first_author = f"{family}, {first_initial}."
-    
-    # Форматируем всех авторов для части после /
-    all_authors = ""
-    for i, author in enumerate(metadata['authors']):
-        given = author['given']
-        family = author['family']
-        initials = given.split()[:2]
-        first_initial = initials[0][0] if initials else ''
-        second_initial = initials[1][0].upper() if len(initials) > 1 else ''
-        
-        if second_initial:
-            author_str = f"{first_initial}.{second_initial}. {family}"
-        else:
-            author_str = f"{first_initial}. {family}"
-        
-        all_authors += author_str
-        if i < len(metadata['authors']) - 1:
-            all_authors += ", "
-    
-    # Форматируем страницы с использованием длинного тире вместо дефиса
-    pages = metadata['pages']
-    article_number = metadata['article_number']
-    
-    # Определяем язык и устанавливаем метки для томов/страниц/статей
-    is_russian = st.session_state.current_language == 'ru'
-    volume_label = "Т." if is_russian else "Vol."
-    page_label = "С." if is_russian else "P."
-    article_label = "Арт." if is_russian else "Art."
-    issue_label = "№" if is_russian else "No."
-    
-    # Форматируем DOI
-    doi_url = f"https://doi.org/{metadata['doi']}"
-    
-    # Для ГОСТ используем полное название журнала (без сокращений)
-    journal_name = metadata['journal']
-    
-    # Строим ссылку ГОСТ с номером выпуска, если доступно
-    if metadata['issue']:
-        gost_ref = f"{first_author} {metadata['title']} / {all_authors} // {journal_name}. – {metadata['year']}. – {volume_label} {metadata['volume']}. – {issue_label} {metadata['issue']}."
-    else:
-        gost_ref = f"{first_author} {metadata['title']} / {all_authors} // {journal_name}. – {metadata['year']}. – {volume_label} {metadata['volume']}."
-    
-    # Добавляем страницы или номер статьи
-    if pages:
-        if '-' in pages:
-            start_page, end_page = pages.split('-')
-            pages = f"{start_page.strip()}–{end_page.strip()}"  # Используем длинное тире
-        else:
-            pages = pages.strip()
-        gost_ref += f" – {page_label} {pages}."
-    elif article_number:
-        gost_ref += f" – {article_label} {article_number}."
-    else:
-        if is_russian:
-            gost_ref += " – [Без пагинации]."
-        else:
-            gost_ref += " – [No pagination]."
-    
-    # Добавляем DOI
-    gost_ref += f" – {doi_url}"
-    
-    if for_preview:
-        return gost_ref, False
-    else:
-        # Для реального документа возвращаем как несколько элементов с DOI как гиперссылкой
-        elements = []
-        
-        # Добавляем весь текст до DOI как обычный текст
-        text_before_doi = gost_ref.replace(doi_url, "")
-        elements.append((text_before_doi, False, False, "", False, None))
-        
-        # Добавляем DOI как гиперссылку
-        elements.append((doi_url, False, False, "", True, metadata['doi']))
-        
-        return elements, False
-
-def format_acs_reference(metadata, style_config, for_preview=False):
-    """Форматирование ссылки в стиле ACS (MDPI)"""
-    if not metadata:
-        error_message = "Ошибка: Не удалось отформатировать ссылку." if st.session_state.current_language == 'ru' else "Error: Could not format the reference."
-        return (error_message, True)
-    
-    # Форматируем авторов в стиле ACS: Surname, I.I.; Surname, I.I.; ...
-    authors_str = ""
-    for i, author in enumerate(metadata['authors']):
-        given = author['given']
-        family = author['family']
-        
-        # Извлекаем инициалы
-        initials = given.split()[:2]
-        first_initial = initials[0][0] if initials else ''
-        second_initial = initials[1][0].upper() if len(initials) > 1 else ''
-        
-        # Форматируем автора: Surname, I.I.
-        if second_initial:
-            author_str = f"{family}, {first_initial}.{second_initial}."
-        else:
-            author_str = f"{family}, {first_initial}."
-        
-        authors_str += author_str
-        
-        # Добавляем разделитель
-        if i < len(metadata['authors']) - 1:
-            authors_str += "; "
-    
-    # Форматируем страницы
-    pages = metadata['pages']
-    article_number = metadata['article_number']
-    
-    if pages:
-        if '-' in pages:
-            start_page, end_page = pages.split('-')
-            start_page = start_page.strip()
-            end_page = end_page.strip()
-            # Используем короткий формат для конечной страницы если возможно
-            if len(start_page) == len(end_page) and start_page[:-1] == end_page[:-1]:
-                pages_formatted = f"{start_page}−{end_page[-1]}"
-            else:
-                pages_formatted = f"{start_page}−{end_page}"
-        else:
-            pages_formatted = pages
-    elif article_number:
-        pages_formatted = article_number
-    else:
-        pages_formatted = ""
-    
-    # Применяем сокращение названия журнала для стиля ACS
-    journal_style = style_config.get('journal_style', '{J. Abbr.}')  # По умолчанию с точками для ACS
-    journal_name = journal_abbrev.abbreviate_journal_name(metadata['journal'], journal_style)
-    
-    # Собираем ссылку ACS
-    acs_ref = f"{authors_str} {metadata['title']}. {journal_name} {metadata['year']}, {metadata['volume']}, {pages_formatted}."
-    
-    # Убираем двойные точки
-    acs_ref = re.sub(r'\.\.+', '.', acs_ref)
-    
-    if for_preview:
-        return acs_ref, False
-    else:
-        # Для реального документа разбиваем на элементы с форматированием
-        elements = []
-        
-        # Авторы
-        elements.append((authors_str, False, False, " ", False, None))
-        
-        # Название
-        elements.append((metadata['title'], False, False, ". ", False, None))
-        
-        # Журнал (курсив)
-        elements.append((journal_name, True, False, " ", False, None))
-        
-        # Год (жирный)
-        elements.append((str(metadata['year']), False, True, ", ", False, None))
-        
-        # Том (курсив)
-        elements.append((metadata['volume'], True, False, ", ", False, None))
-        
-        # Страницы
-        elements.append((pages_formatted, False, False, ".", False, None))
-        
-        return elements, False
-
-def format_rsc_reference(metadata, style_config, for_preview=False):
-    """Форматирование ссылки в стиле RSC"""
-    if not metadata:
-        error_message = "Ошибка: Не удалось отформатировать ссылку." if st.session_state.current_language == 'ru' else "Error: Could not format the reference."
-        return (error_message, True)
-    
-    # Форматируем авторов в стиле RSC: I.I. Surname, I.I. Surname, ... and I.I. Surname
-    authors_str = ""
-    for i, author in enumerate(metadata['authors']):
-        given = author['given']
-        family = author['family']
-        
-        # Извлекаем инициалы
-        initials = given.split()[:2]
-        first_initial = initials[0][0] if initials else ''
-        second_initial = initials[1][0].upper() if len(initials) > 1 else ''
-        
-        # Форматируем автора: I.I. Surname
-        if second_initial:
-            author_str = f"{first_initial}.{second_initial}. {family}"
-        else:
-            author_str = f"{first_initial}. {family}"
-        
-        authors_str += author_str
-        
-        # Добавляем разделитель
-        if i < len(metadata['authors']) - 1:
-            if i == len(metadata['authors']) - 2:
-                authors_str += " and "
-            else:
-                authors_str += ", "
-    
-    # Форматируем страницы - для RSC берем только первую страницу
-    pages = metadata['pages']
-    article_number = metadata['article_number']
-    
-    if pages:
-        # Для RSC стиля берем только первую страницу
-        if '-' in pages:
-            first_page = pages.split('-')[0].strip()
-            pages_formatted = first_page
-        else:
-            pages_formatted = pages.strip()
-    elif article_number:
-        pages_formatted = article_number
-    else:
-        pages_formatted = ""
-    
-    # Применяем сокращение названия журнала для стиля RSC
-    journal_style = style_config.get('journal_style', '{J. Abbr.}')  # По умолчанию с точками для RSC
-    journal_name = journal_abbrev.abbreviate_journal_name(metadata['journal'], journal_style)
-    
-    # Собираем ссылку RSC
-    rsc_ref = f"{authors_str}, {journal_name}, {metadata['year']}, {metadata['volume']}, {pages_formatted}."
-    
-    # Убираем двойные точки
-    rsc_ref = re.sub(r'\.\.+', '.', rsc_ref)
-    
-    if for_preview:
-        return rsc_ref, False
-    else:
-        # Для реального документа разбиваем на элементы с форматированием
-        elements = []
-        
-        # Авторы
-        elements.append((authors_str, False, False, ", ", False, None))
-        
-        # Журнал (курсив)
-        elements.append((journal_name, True, False, ", ", False, None))
-        
-        # Год
-        elements.append((str(metadata['year']), False, False, ", ", False, None))
-        
-        # Том (жирный)
-        elements.append((metadata['volume'], False, True, ", ", False, None))
-        
-        # Страницы (только первая страница)
-        elements.append((pages_formatted, False, False, ".", False, None))
-        
-        return elements, False
-
-def format_cta_reference(metadata, style_config, for_preview=False):
-    """Форматирование ссылки в стиле CTA"""
-    if not metadata:
-        error_message = "Ошибка: Не удалось отформатировать ссылку." if st.session_state.current_language == 'ru' else "Error: Could not format the reference."
-        return (error_message, True)
-    
-    # Форматируем авторов в стиле CTA: Surname Initials, Surname Initials, ... Surname Initials
-    authors_str = ""
-    for i, author in enumerate(metadata['authors']):
-        given = author['given']
-        family = author['family']
-        
-        # Извлекаем инициалы
-        initials = given.split()[:2]
-        first_initial = initials[0][0] if initials else ''
-        second_initial = initials[1][0].upper() if len(initials) > 1 else ''
-        
-        # Форматируем автора: Surname Initials (без точек)
-        if second_initial:
-            author_str = f"{family} {first_initial}{second_initial}"
-        else:
-            author_str = f"{family} {first_initial}"
-        
-        authors_str += author_str
-        
-        # Добавляем разделитель
-        if i < len(metadata['authors']) - 1:
-            authors_str += ", "
-    
-    # Форматируем страницы для стиля CTA (сокращаем диапазон)
-    pages = metadata['pages']
-    article_number = metadata['article_number']
-    pages_formatted = format_pages(pages, article_number, "", "cta")
-    
-    # Применяем сокращение названия журнала для стиля CTA (без точек)
-    journal_style = style_config.get('journal_style', '{J Abbr}')  # По умолчанию без точек для CTA
-    journal_name = journal_abbrev.abbreviate_journal_name(metadata['journal'], journal_style)
-    
-    # Форматируем номер выпуска если есть
-    issue_part = f"({metadata['issue']})" if metadata['issue'] else ""
-    
-    # Собираем ссылку CTA
-    cta_ref = f"{authors_str}. {metadata['title']}. {journal_name}. {metadata['year']};{metadata['volume']}{issue_part}:{pages_formatted}. doi:{metadata['doi']}"
-    
-    if for_preview:
-        return cta_ref, False
-    else:
-        # Для реального документа разбиваем на элементы с форматированием
-        elements = []
-        
-        # Авторы
-        elements.append((authors_str, False, False, ". ", False, None))
-        
-        # Название
-        elements.append((metadata['title'], False, False, ". ", False, None))
-        
-        # Журнал (курсив)
-        elements.append((journal_name, True, False, ". ", False, None))
-        
-        # Год
-        elements.append((str(metadata['year']), False, False, ";", False, None))
-        
-        # Том
-        elements.append((metadata['volume'], False, False, "", False, None))
-        
-        # Номер выпуска (если есть)
-        if metadata['issue']:
-            elements.append((f"({metadata['issue']})", False, False, ":", False, None))
-        else:
-            elements.append(("", False, False, ":", False, None))
-        
-        # Страницы
-        elements.append((pages_formatted, False, False, ". ", False, None))
-        
-        # DOI - всегда как гиперссылка в стиле CTA
-        doi_text = f"doi:{metadata['doi']}"
-        elements.append((doi_text, False, False, "", True, metadata['doi']))
-        
-        return elements, False
-
-def apply_yellow_background(run):
-    shd = OxmlElement('w:shd')
-    shd.set(qn('w:fill'), 'FFFF00')
-    run._element.get_or_add_rPr().append(shd)
-
-def apply_blue_background(run):
-    shd = OxmlElement('w:shd')
-    shd.set(qn('w:fill'), 'E6F3FF')  # Светло-синий цвет
-    run._element.get_or_add_rPr().append(shd)
-
-def apply_red_color(run):
-    color = OxmlElement('w:color')
-    color.set(qn('w:val'), 'FF0000')
-    run._element.get_or_add_rPr().append(color)
+    """Универсальная функция форматирования ссылки"""
+    formatter = CitationFormatterFactory.create_formatter(style_config)
+    return formatter.format_reference(metadata, for_preview)
 
 def find_duplicate_references(formatted_refs):
     """Находит дубликаты ссылок и возвращает информацию о них"""
@@ -1390,170 +1635,9 @@ def process_docx(input_file, style_config, progress_container, status_container)
     statistics = generate_statistics(formatted_refs)
     
     # Создаем новый DOCX документ с отформатированными ссылками
-    output_doc = Document()
-    
-    # Измененный заголовок согласно требованию 1 и 4
-    output_doc.add_paragraph('Citation Style Construction / developed by daM©')
-    output_doc.add_paragraph('See short stats after the References section')
-    output_doc.add_heading('References', level=1)
-    
-    for i, (elements, is_error, metadata) in enumerate(formatted_refs):
-        numbering = style_config['numbering_style']
-        
-        # Формируем префикс нумерации
-        if numbering == "No numbering":
-            prefix = ""
-        elif numbering == "1":
-            prefix = f"{i + 1} "
-        elif numbering == "1.":
-            prefix = f"{i + 1}. "
-        elif numbering == "1)":
-            prefix = f"{i + 1}) "
-        elif numbering == "(1)":
-            prefix = f"({i + 1}) "
-        elif numbering == "[1]":
-            prefix = f"[{i + 1}] "
-        else:
-            prefix = f"{i + 1}. "
-        
-        para = output_doc.add_paragraph(prefix)
-        
-        if is_error:
-            # Показываем оригинальный текст с желтым фоном и сообщением об ошибки
-            run = para.add_run(str(elements))
-            apply_yellow_background(run)
-        elif i in duplicates_info:
-            # Дубликат - выделяем синим и добавляем пометку
-            original_index = duplicates_info[i] + 1  # +1 потому что нумерация с 1
-            duplicate_note = get_text('duplicate_reference').format(original_index)
-            
-            if isinstance(elements, str):
-                run = para.add_run(elements)
-                apply_blue_background(run)
-                para.add_run(f" - {duplicate_note}").italic = True
-            else:
-                for j, (value, italic, bold, separator, is_doi_hyperlink, doi_value) in enumerate(elements):
-                    if is_doi_hyperlink and doi_value:
-                        add_hyperlink(para, value, f"https://doi.org/{doi_value}")
-                    else:
-                        run = para.add_run(value)
-                        if italic:
-                            run.font.italic = True
-                        if bold:
-                            run.font.bold = True
-                        apply_blue_background(run)
-                    
-                    if separator and j < len(elements) - 1:
-                        para.add_run(separator)
-                
-                para.add_run(f" - {duplicate_note}").italic = True
-        else:
-            # Обычная ссылка
-            if metadata is None:
-                run = para.add_run(str(elements))
-                run.font.italic = True
-            else:
-                for j, (value, italic, bold, separator, is_doi_hyperlink, doi_value) in enumerate(elements):
-                    if is_doi_hyperlink and doi_value:
-                        # Добавляем DOI как гиперссылку
-                        add_hyperlink(para, value, f"https://doi.org/{doi_value}")
-                    else:
-                        run = para.add_run(value)
-                        if italic:
-                            run.font.italic = True
-                        if bold:
-                            run.font.bold = True
-                    
-                    # Добавляем разделитель между элементами
-                    if separator and j < len(elements) - 1:
-                        para.add_run(separator)
-                
-                # Добавляем конечную пунктуацию
-                if style_config['final_punctuation'] and not is_error:
-                    para.add_run(".")
-    
-    # Добавляем раздел Stats согласно требованию 5
-    output_doc.add_heading('Stats', level=1)
-    
-    # Таблица Journal Frequency
-    output_doc.add_heading('Journal Frequency', level=2)
-    journal_table = output_doc.add_table(rows=1, cols=3)
-    journal_table.style = 'Table Grid'
-    
-    # Заголовки таблицы
-    hdr_cells = journal_table.rows[0].cells
-    hdr_cells[0].text = 'Journal Name'
-    hdr_cells[1].text = 'Count'
-    hdr_cells[2].text = 'Percentage (%)'
-    
-    # Данные таблицы
-    for journal_stat in statistics['journal_stats']:
-        row_cells = journal_table.add_row().cells
-        row_cells[0].text = journal_stat['journal']
-        row_cells[1].text = str(journal_stat['count'])
-        row_cells[2].text = str(journal_stat['percentage'])
-    
-    # Пустая строка между таблицами
-    output_doc.add_paragraph()
-    
-    # Таблица Year Distribution
-    output_doc.add_heading('Year Distribution', level=2)
-    
-    # Добавляем предупреждение если нужно согласно требованию 6
-    if statistics['needs_more_recent_references']:
-        warning_para = output_doc.add_paragraph()
-        warning_run = warning_para.add_run("To improve the relevance and significance of the research, consider including more recent references published within the last 3-4 years")
-        apply_red_color(warning_run)
-        output_doc.add_paragraph()
-    
-    year_table = output_doc.add_table(rows=1, cols=3)
-    year_table.style = 'Table Grid'
-    
-    # Заголовки таблицы
-    hdr_cells = year_table.rows[0].cells
-    hdr_cells[0].text = 'Year'
-    hdr_cells[1].text = 'Count'
-    hdr_cells[2].text = 'Percentage (%)'
-    
-    # Данные таблицы
-    for year_stat in statistics['year_stats']:
-        row_cells = year_table.add_row().cells
-        row_cells[0].text = str(year_stat['year'])
-        row_cells[1].text = str(year_stat['count'])
-        row_cells[2].text = str(year_stat['percentage'])
-    
-    # Пустая строка между таблицами
-    output_doc.add_paragraph()
-    
-    # Таблица Author Distribution
-    output_doc.add_heading('Author Distribution', level=2)
-    
-    # Добавляем предупреждение если нужно согласно требованию 7
-    if statistics['has_frequent_author']:
-        warning_para = output_doc.add_paragraph()
-        warning_run = warning_para.add_run("The author(s) are referenced frequently. Either reduce the number of references to the author(s), or expand the reference list to include more sources")
-        apply_red_color(warning_run)
-        output_doc.add_paragraph()
-    
-    author_table = output_doc.add_table(rows=1, cols=3)
-    author_table.style = 'Table Grid'
-    
-    # Заголовки таблицы
-    hdr_cells = author_table.rows[0].cells
-    hdr_cells[0].text = 'Author'
-    hdr_cells[1].text = 'Count'
-    hdr_cells[2].text = 'Percentage (%)'
-    
-    # Данные таблицы
-    for author_stat in statistics['author_stats']:
-        row_cells = author_table.add_row().cells
-        row_cells[0].text = author_stat['author']
-        row_cells[1].text = str(author_stat['count'])
-        row_cells[2].text = str(author_stat['percentage'])
-    
-    output_doc_buffer = io.BytesIO()
-    output_doc.save(output_doc_buffer)
-    output_doc_buffer.seek(0)
+    output_doc_buffer = DocumentGenerator.generate_document(
+        formatted_refs, statistics, style_config, duplicates_info
+    )
     
     return formatted_refs, txt_bytes, output_doc_buffer, doi_found_count, doi_not_found_count, statistics
 
@@ -1845,9 +1929,9 @@ def main():
         # Настройки нумерации
         numbering_style = st.selectbox(
             get_text('numbering_style'), 
-            ["No numbering", "1", "1.", "1)", "(1)", "[1]"], 
+            NUMBERING_STYLES, 
             key="num", 
-            index=["No numbering", "1", "1.", "1)", "(1)", "[1]"].index(st.session_state.num)
+            index=NUMBERING_STYLES.index(st.session_state.num)
         )
         
         # Настройки авторов в одной строке
@@ -1855,9 +1939,9 @@ def main():
         with col_authors[0]:
             author_format = st.selectbox(
                 get_text('author_format'), 
-                ["AA Smith", "A.A. Smith", "Smith AA", "Smith A.A", "Smith, A.A."], 
+                AUTHOR_FORMATS, 
                 key="auth", 
-                index=["AA Smith", "A.A. Smith", "Smith AA", "Smith A.A", "Smith, A.A."].index(st.session_state.auth)
+                index=AUTHOR_FORMATS.index(st.session_state.auth)
             )
         with col_authors[1]:
             author_separator = st.selectbox(
@@ -1895,17 +1979,9 @@ def main():
         # Стиль журнала
         journal_style = st.selectbox(
             get_text('journal_style'),
-            [
-                "{Full Journal Name}",
-                "{J. Abbr.}", 
-                "{J Abbr}"
-            ],
+            JOURNAL_STYLES,
             key="journal_style",
-            index=[
-                "{Full Journal Name}",
-                "{J. Abbr.}", 
-                "{J Abbr}"
-            ].index(st.session_state.journal_style),
+            index=JOURNAL_STYLES.index(st.session_state.journal_style),
             format_func=lambda x: {
                 "{Full Journal Name}": get_text('full_journal_name'),
                 "{J. Abbr.}": get_text('journal_abbr_with_dots'),
@@ -1914,16 +1990,15 @@ def main():
         )
         
         # Настройки страниц
-        page_options = ["122 - 128", "122-128", "122 – 128", "122–128", "122–8", "122"]
         # Безопасное получение индекса для page_format
         current_page = st.session_state.page
         page_index = 3  # Значение по умолчанию "122–128"
-        if current_page in page_options:
-            page_index = page_options.index(current_page)
+        if current_page in PAGE_FORMATS:
+            page_index = PAGE_FORMATS.index(current_page)
         
         page_format = st.selectbox(
             get_text('page_format'), 
-            page_options, 
+            PAGE_FORMATS, 
             key="page", 
             index=page_index
         )
@@ -1933,9 +2008,9 @@ def main():
         with col_doi[0]:
             doi_format = st.selectbox(
                 get_text('doi_format'), 
-                ["10.10/xxx", "doi:10.10/xxx", "DOI:10.10/xxx", "https://dx.doi.org/10.10/xxx"], 
+                DOI_FORMATS, 
                 key="doi", 
-                index=["10.10/xxx", "doi:10.10/xxx", "DOI:10.10/xxx", "https://dx.doi.org/10.10/xxx"].index(st.session_state.doi)
+                index=DOI_FORMATS.index(st.session_state.doi)
             )
         with col_doi[1]:
             doi_hyperlink = st.checkbox(
@@ -1954,7 +2029,6 @@ def main():
 
     with col2:
         st.subheader(get_text('element_config'))
-        available_elements = ["", "Authors", "Title", "Journal", "Year", "Volume", "Issue", "Pages", "DOI"]
         element_configs = []
         used_elements = set()
         
@@ -1982,10 +2056,10 @@ def main():
             with cols[0]:
                 element = st.selectbox(
                     "", 
-                    available_elements, 
+                    AVAILABLE_ELEMENTS, 
                     key=f"el{i}", 
                     label_visibility="collapsed",
-                    index=available_elements.index(st.session_state[f"el{i}"]) if st.session_state[f"el{i}"] in available_elements else 0
+                    index=AVAILABLE_ELEMENTS.index(st.session_state[f"el{i}"]) if st.session_state[f"el{i}"] in AVAILABLE_ELEMENTS else 0
                 )
             
             with cols[1]:
@@ -2079,7 +2153,7 @@ def main():
                 'article_number': '',
                 'doi': '10.1000/xyz123'
             }
-            preview_ref, _ = format_gost_reference(preview_metadata, style_config, for_preview=True)
+            preview_ref, _ = format_reference(preview_metadata, style_config, for_preview=True)
             
             numbering = style_config['numbering_style']
             if numbering == "No numbering":
@@ -2122,7 +2196,7 @@ def main():
                 'article_number': '',
                 'doi': '10.1000/xyz123'
             }
-            preview_ref, _ = format_acs_reference(preview_metadata, style_config, for_preview=True)
+            preview_ref, _ = format_reference(preview_metadata, style_config, for_preview=True)
             
             numbering = style_config['numbering_style']
             if numbering == "No numbering":
@@ -2172,7 +2246,7 @@ def main():
                 'article_number': '',
                 'doi': '10.1000/xyz123'
             }
-            preview_ref, _ = format_rsc_reference(preview_metadata, style_config, for_preview=True)
+            preview_ref, _ = format_reference(preview_metadata, style_config, for_preview=True)
             
             numbering = style_config['numbering_style']
             if numbering == "No numbering":
@@ -2233,7 +2307,7 @@ def main():
                 'article_number': '',
                 'doi': '10.1016/j.ceramint.2013.11.094'
             }
-            preview_ref, _ = format_cta_reference(preview_metadata, style_config, for_preview=True)
+            preview_ref, _ = format_reference(preview_metadata, style_config, for_preview=True)
             
             numbering = style_config['numbering_style']
             if numbering == "No numbering":
@@ -2385,160 +2459,9 @@ def main():
                         statistics = generate_statistics(formatted_refs)
                         
                         # Создаем DOCX документ для текстового ввода
-                        output_doc = Document()
-                        
-                        # Измененный заголовок согласно требованию 1 и 4
-                        output_doc.add_paragraph('Citation Style Construction / developed by daM©')
-                        output_doc.add_paragraph('See short stats after the References section')
-                        output_doc.add_heading('References', level=1)
-                        
-                        for i, (elements, is_error, metadata) in enumerate(formatted_refs):
-                            numbering = style_config['numbering_style']
-                            
-                            if numbering == "No numbering":
-                                prefix = ""
-                            elif numbering == "1":
-                                prefix = f"{i + 1} "
-                            elif numbering == "1.":
-                                prefix = f"{i + 1}. "
-                            elif numbering == "1)":
-                                prefix = f"{i + 1}) "
-                            elif numbering == "(1)":
-                                prefix = f"({i + 1}) "
-                            elif numbering == "[1]":
-                                prefix = f"[{i + 1}] "
-                            else:
-                                prefix = f"{i + 1}. "
-                            
-                            para = output_doc.add_paragraph(prefix)
-                            
-                            if is_error:
-                                run = para.add_run(str(elements))
-                                apply_yellow_background(run)
-                            elif i in duplicates_info:
-                                # Дубликат - выделяем синим и добавляем пометку
-                                original_index = duplicates_info[i] + 1
-                                duplicate_note = get_text('duplicate_reference').format(original_index)
-                                
-                                if isinstance(elements, str):
-                                    run = para.add_run(elements)
-                                    apply_blue_background(run)
-                                    para.add_run(f" - {duplicate_note}").italic = True
-                                else:
-                                    for j, (value, italic, bold, separator, is_doi_hyperlink, doi_value) in enumerate(elements):
-                                        if is_doi_hyperlink and doi_value:
-                                            add_hyperlink(para, value, f"https://doi.org/{doi_value}")
-                                        else:
-                                            run = para.add_run(value)
-                                            if italic:
-                                                run.font.italic = True
-                                            if bold:
-                                                run.font.bold = True
-                                            apply_blue_background(run)
-                                        
-                                        if separator and j < len(elements) - 1:
-                                            para.add_run(separator)
-                                    
-                                    para.add_run(f" - {duplicate_note}").italic = True
-                            else:
-                                for j, (value, italic, bold, separator, is_doi_hyperlink, doi_value) in enumerate(elements):
-                                    if is_doi_hyperlink and doi_value:
-                                        add_hyperlink(para, value, f"https://doi.org/{doi_value}")
-                                    else:
-                                        run = para.add_run(value)
-                                        if italic:
-                                            run.font.italic = True
-                                        if bold:
-                                            run.font.bold = True
-                                    
-                                    if separator and j < len(elements) - 1:
-                                        para.add_run(separator)
-                                
-                                if style_config['final_punctuation'] and not is_error:
-                                    para.add_run(".")
-                        
-                        # Добавляем раздел Stats согласно требованию 5
-                        output_doc.add_heading('Stats', level=1)
-                        
-                        # Таблица Journal Frequency
-                        output_doc.add_heading('Journal Frequency', level=2)
-                        journal_table = output_doc.add_table(rows=1, cols=3)
-                        journal_table.style = 'Table Grid'
-                        
-                        # Заголовки таблицы
-                        hdr_cells = journal_table.rows[0].cells
-                        hdr_cells[0].text = 'Journal Name'
-                        hdr_cells[1].text = 'Count'
-                        hdr_cells[2].text = 'Percentage (%)'
-                        
-                        # Данные таблицы
-                        for journal_stat in statistics['journal_stats']:
-                            row_cells = journal_table.add_row().cells
-                            row_cells[0].text = journal_stat['journal']
-                            row_cells[1].text = str(journal_stat['count'])
-                            row_cells[2].text = str(journal_stat['percentage'])
-                        
-                        # Пустая строка между таблицами
-                        output_doc.add_paragraph()
-                        
-                        # Таблица Year Distribution
-                        output_doc.add_heading('Year Distribution', level=2)
-                        
-                        # Добавляем предупреждение если нужно согласно требованию 6
-                        if statistics['needs_more_recent_references']:
-                            warning_para = output_doc.add_paragraph()
-                            warning_run = warning_para.add_run("To improve the relevance and significance of the research, consider including more recent references published within the last 3-4 years")
-                            apply_red_color(warning_run)
-                            output_doc.add_paragraph()
-                        
-                        year_table = output_doc.add_table(rows=1, cols=3)
-                        year_table.style = 'Table Grid'
-                        
-                        # Заголовки таблицы
-                        hdr_cells = year_table.rows[0].cells
-                        hdr_cells[0].text = 'Year'
-                        hdr_cells[1].text = 'Count'
-                        hdr_cells[2].text = 'Percentage (%)'
-                        
-                        # Данные таблицы
-                        for year_stat in statistics['year_stats']:
-                            row_cells = year_table.add_row().cells
-                            row_cells[0].text = str(year_stat['year'])
-                            row_cells[1].text = str(year_stat['count'])
-                            row_cells[2].text = str(year_stat['percentage'])
-                        
-                        # Пустая строка между таблицами
-                        output_doc.add_paragraph()
-                        
-                        # Таблица Author Distribution
-                        output_doc.add_heading('Author Distribution', level=2)
-                        
-                        # Добавляем предупреждение если нужно согласно требованию 7
-                        if statistics['has_frequent_author']:
-                            warning_para = output_doc.add_paragraph()
-                            warning_run = warning_para.add_run("The author(s) are referenced frequently. Either reduce the number of references to the author(s), or expand the reference list to include more sources")
-                            apply_red_color(warning_run)
-                            output_doc.add_paragraph()
-                        
-                        author_table = output_doc.add_table(rows=1, cols=3)
-                        author_table.style = 'Table Grid'
-                        
-                        # Заголовки таблицы
-                        hdr_cells = author_table.rows[0].cells
-                        hdr_cells[0].text = 'Author'
-                        hdr_cells[1].text = 'Count'
-                        hdr_cells[2].text = 'Percentage (%)'
-                        
-                        # Данные таблицы
-                        for author_stat in statistics['author_stats']:
-                            row_cells = author_table.add_row().cells
-                            row_cells[0].text = author_stat['author']
-                            row_cells[1].text = str(author_stat['count'])
-                            row_cells[2].text = str(author_stat['percentage'])
-                        
-                        output_doc_buffer = io.BytesIO()
-                        output_doc.save(output_doc_buffer)
-                        output_doc_buffer.seek(0)
+                        output_doc_buffer = DocumentGenerator.generate_document(
+                            formatted_refs, statistics, style_config, duplicates_info
+                        )
 
                 # Очищаем контейнеры прогресса
                 progress_container.empty()
