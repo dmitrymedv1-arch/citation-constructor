@@ -1760,9 +1760,9 @@ def main():
         .processing-status { font-size: 0.7rem; margin-bottom: 0.05rem; }
         .compact-row { margin-bottom: 0.1rem; }
         .guide-text { font-size: 0.55rem !important; line-height: 1.1; margin-bottom: 0.1rem; }
-        .guide-title { font-size: 0.6rem !important; font-weight: bold; margin-bottom: 0.1rem; }
-        .guide-step { font-size: 0.55rem !important; line-height: 1.1; margin-bottom: 0.05rem; }
-        .guide-note { font-size: 0.5rem !important; font-style: italic; line-height: 1.1; margin-bottom: 0.05rem; margin-left: 0.5rem; }
+        .guide-title { font-size: 0.7rem !important; font-weight: bold; margin-bottom: 0.1rem; }
+        .guide-step { font-size: 0.55rem !important; line-height: 1.1; margin-bottom: 0.1rem; }
+        .guide-note { font-size: 0.55rem !important; font-style: italic; line-height: 1.1; margin-bottom: 0.1rem; margin-left: 0.5rem; }
         </style>
     """, unsafe_allow_html=True)
 
@@ -2654,5 +2654,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
