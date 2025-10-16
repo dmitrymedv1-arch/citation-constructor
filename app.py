@@ -19,7 +19,8 @@ from typing import List, Dict, Tuple, Set
 import hashlib
 import time
 from collections import Counter
-import diskcache
+import os
+import pickle
 from pathlib import Path
 
 works = Works()
@@ -194,10 +195,46 @@ TRANSLATIONS = {
     }
 }
 
+# Простая реализация кэша на основе файлов
+class SimpleCache:
+    def __init__(self, cache_dir):
+        self.cache_dir = Path(cache_dir)
+        self.cache_dir.mkdir(exist_ok=True)
+    
+    def get(self, key):
+        cache_file = self.cache_dir / f"{hash(key)}.pkl"
+        if cache_file.exists():
+            try:
+                with open(cache_file, 'rb') as f:
+                    data, expiry = pickle.load(f)
+                    if expiry is None or expiry > time.time():
+                        return data
+            except:
+                pass
+        return None
+    
+    def set(self, key, value, expire=None):
+        cache_file = self.cache_dir / f"{hash(key)}.pkl"
+        expiry = time.time() + expire if expire else None
+        try:
+            with open(cache_file, 'wb') as f:
+                pickle.dump((value, expiry), f)
+        except:
+            pass
+    
+    def clear(self):
+        for cache_file in self.cache_dir.glob("*.pkl"):
+            try:
+                cache_file.unlink()
+            except:
+                pass
+    
+    def __len__(self):
+        return len(list(self.cache_dir.glob("*.pkl")))
+
 # Инициализация кэша
 CACHE_DIR = Path("./.citation_cache")
-CACHE_DIR.mkdir(exist_ok=True)
-cache = diskcache.Cache(str(CACHE_DIR))
+cache = SimpleCache(CACHE_DIR)
 
 # Журнальные шаблоны
 JOURNAL_TEMPLATES = {
@@ -3486,5 +3523,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
