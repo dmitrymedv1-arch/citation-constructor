@@ -93,7 +93,7 @@ TRANSLATIONS = {
         'full_journal_name': 'Full Journal Name',
         'journal_abbr_with_dots': 'J. Abbr.',
         'journal_abbr_no_dots': 'J Abbr',
-        'short_guide_title': 'A short guide',
+        'short_guide_title': 'A short guide for the conversion of doi-based references',
         'step_1': '❶ Select a ready reference style (GOST, ACS(MDPI), RSC, or CTA), or create your own style by selecting the sequence, design, and punctuation of the element configurations',
         'step_1_note': '(!) The punctuation boxes enable various items to be included between element configurations (simple punctuation, Vol., Issue…)',
         'step_2': '❷ Then, use the Style Presets to change certain element configurations for each reformatted reference.',
@@ -172,7 +172,7 @@ TRANSLATIONS = {
         'full_journal_name': 'Полное название журнала',
         'journal_abbr_with_dots': 'J. Abbr.',
         'journal_abbr_no_dots': 'J Abbr',
-        'short_guide_title': 'Краткое руководство',
+        'short_guide_title': 'Краткое руководство для конвертации ссылок, имеющих doi',
         'step_1': '❶ Выберите готовый стиль ссылок (ГОСТ, ACS(MDPI), RSC или CTA) или создайте свой собственный стиль, выбрав последовательность, оформление и пунктуацию конфигураций элементов',
         'step_1_note': '(!) Поля пунктуации позволяют включать различные элементы между конфигурациями (простая пунктуация, Том, Выпуск…)',
         'step_2': '❷ Затем используйте готовые стили, чтобы изменить определенные конфигурации элементов для каждой переформатированной ссылки.',
@@ -2654,4 +2654,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
