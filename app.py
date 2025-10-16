@@ -1519,7 +1519,7 @@ def generate_statistics(formatted_refs):
         })
     
     # Проверка частоты авторов
-    has_frequent_author = any(stats['percentage'] > 30 for stats in author_stats)
+    has_frequent_author = any(stats['percentage'] > 20 for stats in author_stats)
     
     return {
         'journal_stats': journal_stats,
@@ -2620,3 +2620,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
