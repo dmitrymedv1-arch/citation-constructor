@@ -92,7 +92,16 @@ TRANSLATIONS = {
         'journal_style': 'Journal style:',
         'full_journal_name': 'Full Journal Name',
         'journal_abbr_with_dots': 'J. Abbr.',
-        'journal_abbr_no_dots': 'J Abbr'
+        'journal_abbr_no_dots': 'J Abbr',
+        'short_guide_title': 'A short guide',
+        'step_1': '❶ Select a ready reference style (GOST, ACS(MDPI), RSC, or CTA), or create your own style by selecting the sequence, design, and punctuation of the element configurations',
+        'step_1_note': '(!) The punctuation boxes enable various items to be included between element configurations (simple punctuation, Vol., Issue…)',
+        'step_2': '❷ Then, use the Style Presets to change certain element configurations for each reformatted reference.',
+        'step_3': '❸ The Style Preview function enables users to visualize the final form of their reference style',
+        'step_4': '❹ If the final style is appropriate, select the Docx or Text option in the Data Input section and upload the corresponding information. Then, in the Data Output section, select the required options and press "Process" to initiate reformatting.',
+        'step_5': '❺ After processing is complete, download the reformatted references in your preferred format.',
+        'step_5_note': '(!) Outputting the Docx file is recommended, as it preserves formatting (e.g., bold, italic, and hyperlinks) and includes additional stats at the end of the document.',
+        'step_6': '❻ After creating your final version of the style, save it so that you can upload it again in the next session. Use the Style Management section for this purpose.'
     },
     'ru': {
         'header': '🎨 Конструктор стилей цитирования',
@@ -162,7 +171,16 @@ TRANSLATIONS = {
         'journal_style': 'Стиль журнала:',
         'full_journal_name': 'Полное название журнала',
         'journal_abbr_with_dots': 'J. Abbr.',
-        'journal_abbr_no_dots': 'J Abbr'
+        'journal_abbr_no_dots': 'J Abbr',
+        'short_guide_title': 'Краткое руководство',
+        'step_1': '❶ Выберите готовый стиль ссылок (ГОСТ, ACS(MDPI), RSC или CTA) или создайте свой собственный стиль, выбрав последовательность, оформление и пунктуацию конфигураций элементов',
+        'step_1_note': '(!) Поля пунктуации позволяют включать различные элементы между конфигурациями (простая пунктуация, Том, Выпуск…)',
+        'step_2': '❷ Затем используйте готовые стили, чтобы изменить определенные конфигурации элементов для каждой переформатированной ссылки.',
+        'step_3': '❸ Функция предпросмотра стиля позволяет визуализировать окончательную форму вашего стиля ссылок',
+        'step_4': '❹ Если окончательный стиль подходит, выберите опцию Docx или Текст в разделе ввода данных и загрузите соответствующую информацию. Затем в разделе вывода данных выберите нужные опции и нажмите "Обработать" для начала переформатирования.',
+        'step_5': '❺ После завершения обработки загрузите переформатированные ссылки в предпочитаемом формате.',
+        'step_5_note': '(!) Рекомендуется выводить файл Docx, так как он сохраняет форматирование (например, жирный шрифт, курсив и гиперссылки) и включает дополнительную статистику в конце документа.',
+        'step_6': '❻ После создания окончательной версии стиля сохраните его, чтобы можно было снова загрузить в следующей сессии. Для этого используйте раздел управления стилями.'
     }
 }
 
@@ -1519,7 +1537,7 @@ def generate_statistics(formatted_refs):
         })
     
     # Проверка частоты авторов
-    has_frequent_author = any(stats['percentage'] > 20 for stats in author_stats)
+    has_frequent_author = any(stats['percentage'] > 30 for stats in author_stats)
     
     return {
         'journal_stats': journal_stats,
@@ -1741,6 +1759,10 @@ def main():
         .processing-header { font-size: 0.8rem; font-weight: bold; margin-bottom: 0.1rem; }
         .processing-status { font-size: 0.7rem; margin-bottom: 0.05rem; }
         .compact-row { margin-bottom: 0.1rem; }
+        .guide-text { font-size: 0.55rem !important; line-height: 1.1; margin-bottom: 0.1rem; }
+        .guide-title { font-size: 0.6rem !important; font-weight: bold; margin-bottom: 0.1rem; }
+        .guide-step { font-size: 0.55rem !important; line-height: 1.1; margin-bottom: 0.05rem; }
+        .guide-note { font-size: 0.5rem !important; font-style: italic; line-height: 1.1; margin-bottom: 0.05rem; margin-left: 0.5rem; }
         </style>
     """, unsafe_allow_html=True)
 
@@ -2105,6 +2127,18 @@ def main():
                     }
                 ))
                 used_elements.add(element)
+
+        # Добавляем краткое руководство
+        st.markdown("---")
+        st.markdown(f"<div class='guide-title'>{get_text('short_guide_title')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='guide-step'>{get_text('step_1')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='guide-note'>{get_text('step_1_note')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='guide-step'>{get_text('step_2')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='guide-step'>{get_text('step_3')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='guide-step'>{get_text('step_4')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='guide-step'>{get_text('step_5')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='guide-note'>{get_text('step_5_note')}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='guide-step'>{get_text('step_6')}</div>", unsafe_allow_html=True)
 
     with col3:
         # Предпросмотр стиля
@@ -2620,4 +2654,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
