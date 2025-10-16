@@ -977,7 +977,7 @@ class DocumentGenerator:
         output_doc = Document()
         
         # Измененный заголовок согласно требованию 1 и 4
-        output_doc.add_paragraph('Citation Style Construction / developed by daM©')
+        output_doc.add_paragraph('Citation Style Construction / © IHTE, https://ihte.ru/ / developed by daM©')
         output_doc.add_paragraph('See short stats after the References section')
         output_doc.add_heading('References', level=1)
         
@@ -2654,6 +2654,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
