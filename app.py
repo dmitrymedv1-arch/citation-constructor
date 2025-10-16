@@ -1,10 +1,9 @@
-import time
 import os
 import csv
 import streamlit as st
 import re
 import json
-from datetime import datetime, timedelta
+from datetime import datetime
 from crossref.restful import Works
 from docx import Document
 from docx.oxml.ns import qn
@@ -20,9 +19,6 @@ from typing import List, Dict, Tuple, Set
 import hashlib
 import time
 from collections import Counter
-import os
-import pickle
-from pathlib import Path
 
 works = Works()
 
@@ -65,7 +61,6 @@ TRANSLATIONS = {
         'select_docx_output': 'Select DOCX output to download!',
         'doi_txt': '📄 DOI (TXT)',
         'references_docx': '📋 References (DOCX)',
-        'references_html': '🌐 References (HTML)',
         'found_references': 'Found {} references.',
         'found_references_text': 'Found {} references in text.',
         'statistics': 'Statistics: {} DOI found, {} not found.',
@@ -89,7 +84,6 @@ TRANSLATIONS = {
         'retrying_failed': 'Retrying failed DOI requests...',
         'bibliographic_search': 'Searching by bibliographic data...',
         'style_presets': 'Style Presets',
-        'journal_templates': 'Journal Templates',
         'gost_button': 'GOST',
         'acs_button': 'ACS (MDPI)',
         'rsc_button': 'RSC',
@@ -98,18 +92,7 @@ TRANSLATIONS = {
         'journal_style': 'Journal style:',
         'full_journal_name': 'Full Journal Name',
         'journal_abbr_with_dots': 'J. Abbr.',
-        'journal_abbr_no_dots': 'J Abbr',
-        'select_journal_template': 'Select Journal Template',
-        'custom_style': 'Custom Style',
-        'cache_status': 'Cache: {} items',
-        'clear_cache': 'Clear Cache',
-        'html_output_options': 'HTML Output Options',
-        'html_style': 'HTML Style:',
-        'html_simple': 'Simple List',
-        'html_numbered': 'Numbered List',
-        'html_with_links': 'List with Links',
-        'html_bootstrap': 'Bootstrap Styled',
-        'mobile_optimized': 'Mobile Optimized View'
+        'journal_abbr_no_dots': 'J Abbr'
     },
     'ru': {
         'header': '🎨 Конструктор стилей цитирования',
@@ -148,7 +131,6 @@ TRANSLATIONS = {
         'select_docx_output': 'Выберите DOCX для скачивания!',
         'doi_txt': '📄 DOI (TXT)',
         'references_docx': '📋 Ссылки (DOCX)',
-        'references_html': '🌐 Ссылки (HTML)',
         'found_references': 'Найдено {} ссылок.',
         'found_references_text': 'Найдено {} ссылок в тексте.',
         'statistics': 'Статистика: {} DOI найдено, {} не найдено.',
@@ -172,7 +154,6 @@ TRANSLATIONS = {
         'retrying_failed': 'Повторная попытка для неудачных DOI...',
         'bibliographic_search': 'Поиск по библиографическим данным...',
         'style_presets': 'Готовые стили',
-        'journal_templates': 'Шаблоны журналов',
         'gost_button': 'ГОСТ',
         'acs_button': 'ACS (MDPI)',
         'rsc_button': 'RSC',
@@ -181,362 +162,7 @@ TRANSLATIONS = {
         'journal_style': 'Стиль журнала:',
         'full_journal_name': 'Полное название журнала',
         'journal_abbr_with_dots': 'J. Abbr.',
-        'journal_abbr_no_dots': 'J Abbr',
-        'select_journal_template': 'Выберите шаблон журнала',
-        'custom_style': 'Пользовательский стиль',
-        'cache_status': 'Кэш: {} элементов',
-        'clear_cache': 'Очистить кэш',
-        'html_output_options': 'Настройки HTML вывода',
-        'html_style': 'Стиль HTML:',
-        'html_simple': 'Простой список',
-        'html_numbered': 'Нумерованный список',
-        'html_with_links': 'Список со ссылками',
-        'html_bootstrap': 'Bootstrap стиль',
-        'mobile_optimized': 'Оптимизировано для мобильных'
-    }
-}
-
-# Простая реализация кэша на основе файлов
-class SimpleCache:
-    def __init__(self, cache_dir):
-        self.cache_dir = Path(cache_dir)
-        self.cache_dir.mkdir(exist_ok=True)
-    
-    def get(self, key):
-        cache_file = self.cache_dir / f"{hash(key)}.pkl"
-        if cache_file.exists():
-            try:
-                with open(cache_file, 'rb') as f:
-                    data, expiry = pickle.load(f)
-                    if expiry is None or expiry > time.time():
-                        return data
-            except:
-                pass
-        return None
-    
-    def set(self, key, value, expire=None):
-        cache_file = self.cache_dir / f"{hash(key)}.pkl"
-        expiry = time.time() + expire if expire else None
-        try:
-            with open(cache_file, 'wb') as f:
-                pickle.dump((value, expiry), f)
-        except:
-            pass
-    
-    def clear(self):
-        for cache_file in self.cache_dir.glob("*.pkl"):
-            try:
-                cache_file.unlink()
-            except:
-                pass
-    
-    def __len__(self):
-        return len(list(self.cache_dir.glob("*.pkl")))
-
-# Инициализация кэша
-CACHE_DIR = Path("./.citation_cache")
-cache = SimpleCache(CACHE_DIR)
-
-# Журнальные шаблоны
-JOURNAL_TEMPLATES = {
-    'custom': {
-        'name': 'Custom Style',
-        'description': 'User-defined custom style',
-        'config': {}
-    },
-    'nature': {
-        'name': 'Nature',
-        'description': 'Nature journal style',
-        'config': {
-            'author_format': 'A.A. Smith',
-            'author_separator': ', ',
-            'et_al_limit': 5,
-            'doi_format': '10.10/xxx',
-            'doi_hyperlink': True,
-            'page_format': '122–128',
-            'final_punctuation': '.',
-            'numbering_style': '[1]',
-            'journal_style': '{J. Abbr.}',
-            'elements': [
-                ('Authors', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '. '}),
-                ('Title', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ' '}),
-                ('Journal', {'italic': True, 'bold': False, 'parentheses': False, 'separator': ' '}),
-                ('Year', {'italic': False, 'bold': False, 'parentheses': True, 'separator': ', '}),
-                ('Volume', {'italic': True, 'bold': False, 'parentheses': False, 'separator': ', '}),
-                ('Pages', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '. '}),
-                ('DOI', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ''})
-            ]
-        }
-    },
-    'science': {
-        'name': 'Science',
-        'description': 'Science journal style',
-        'config': {
-            'author_format': 'A.A. Smith',
-            'author_separator': ', ',
-            'et_al_limit': 10,
-            'doi_format': '10.10/xxx',
-            'doi_hyperlink': True,
-            'page_format': '122-128',
-            'final_punctuation': '.',
-            'numbering_style': '1.',
-            'journal_style': '{J. Abbr.}',
-            'elements': [
-                ('Authors', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '. '}),
-                ('Title', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '. '}),
-                ('Journal', {'italic': True, 'bold': False, 'parentheses': False, 'separator': ' '}),
-                ('Year', {'italic': False, 'bold': False, 'parentheses': True, 'separator': ';'}),
-                ('Volume', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ': '}),
-                ('Pages', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '. '}),
-                ('DOI', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ''})
-            ]
-        }
-    },
-    'cell': {
-        'name': 'Cell',
-        'description': 'Cell Press journal style',
-        'config': {
-            'author_format': 'Smith AA',
-            'author_separator': ', ',
-            'et_al_limit': 5,
-            'doi_format': 'https://dx.doi.org/10.10/xxx',
-            'doi_hyperlink': True,
-            'page_format': '122-128',
-            'final_punctuation': '.',
-            'numbering_style': '1.',
-            'journal_style': '{J. Abbr.}',
-            'elements': [
-                ('Authors', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '. '}),
-                ('Title', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '. '}),
-                ('Journal', {'italic': True, 'bold': False, 'parentheses': False, 'separator': ' '}),
-                ('Year', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ';'}),
-                ('Volume', {'italic': False, 'bold': True, 'parentheses': False, 'separator': ': '}),
-                ('Pages', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '. '}),
-                ('DOI', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ''})
-            ]
-        }
-    },
-    'elsevier': {
-        'name': 'Elsevier',
-        'description': 'Elsevier journal style (common)',
-        'config': {
-            'author_format': 'Smith, A.A.',
-            'author_separator': ', ',
-            'et_al_limit': 5,
-            'doi_format': 'doi:10.10/xxx',
-            'doi_hyperlink': True,
-            'page_format': '122-128',
-            'final_punctuation': '.',
-            'numbering_style': '[1]',
-            'journal_style': '{J. Abbr.}',
-            'elements': [
-                ('Authors', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '. '}),
-                ('Title', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '. '}),
-                ('Journal', {'italic': True, 'bold': False, 'parentheses': False, 'separator': ' '}),
-                ('Year', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ';'}),
-                ('Volume', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ' '}),
-                ('Pages', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '. '}),
-                ('DOI', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ''})
-            ]
-        }
-    },
-    'springer': {
-        'name': 'Springer',
-        'description': 'Springer Nature journal style',
-        'config': {
-            'author_format': 'Smith AA',
-            'author_separator': ', ',
-            'et_al_limit': 5,
-            'doi_format': 'https://dx.doi.org/10.10/xxx',
-            'doi_hyperlink': True,
-            'page_format': '122–128',
-            'final_punctuation': '.',
-            'numbering_style': '1.',
-            'journal_style': '{J. Abbr.}',
-            'elements': [
-                ('Authors', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '. '}),
-                ('Title', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '. '}),
-                ('Journal', {'italic': True, 'bold': False, 'parentheses': False, 'separator': ' '}),
-                ('Year', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ', '}),
-                ('Volume', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '('}),
-                ('Issue', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ')'}),
-                ('Pages', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '. '}),
-                ('DOI', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ''})
-            ]
-        }
-    },
-    'wiley': {
-        'name': 'Wiley',
-        'description': 'Wiley journal style',
-        'config': {
-            'author_format': 'A.A. Smith',
-            'author_separator': ', ',
-            'et_al_limit': 5,
-            'doi_format': 'doi:10.10/xxx',
-            'doi_hyperlink': True,
-            'page_format': '122–128',
-            'final_punctuation': '.',
-            'numbering_style': '1.',
-            'journal_style': '{J. Abbr.}',
-            'elements': [
-                ('Authors', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '. '}),
-                ('Title', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '. '}),
-                ('Journal', {'italic': True, 'bold': False, 'parentheses': False, 'separator': ' '}),
-                ('Year', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ';'}),
-                ('Volume', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ': '}),
-                ('Pages', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '. '}),
-                ('DOI', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ''})
-            ]
-        }
-    },
-    'ieee': {
-        'name': 'IEEE',
-        'description': 'IEEE conference and journal style',
-        'config': {
-            'author_format': 'A. A. Smith',
-            'author_separator': ', ',
-            'et_al_limit': 3,
-            'doi_format': '10.10/xxx',
-            'doi_hyperlink': True,
-            'page_format': '122-128',
-            'final_punctuation': '.',
-            'numbering_style': '[1]',
-            'journal_style': '{J. Abbr.}',
-            'elements': [
-                ('Authors', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ', '}),
-                ('Title', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ', '}),
-                ('Journal', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ', vol. '}),
-                ('Volume', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ', '}),
-                ('Pages', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ', '}),
-                ('Year', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '. '}),
-                ('DOI', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ''})
-            ]
-        }
-    },
-    'ama': {
-        'name': 'AMA',
-        'description': 'American Medical Association style',
-        'config': {
-            'author_format': 'Smith AA',
-            'author_separator': ', ',
-            'et_al_limit': 6,
-            'doi_format': 'doi:10.10/xxx',
-            'doi_hyperlink': True,
-            'page_format': '122-128.',
-            'final_punctuation': '.',
-            'numbering_style': '1.',
-            'journal_style': '{J. Abbr.}',
-            'elements': [
-                ('Authors', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '. '}),
-                ('Title', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '. '}),
-                ('Journal', {'italic': True, 'bold': False, 'parentheses': False, 'separator': '. '}),
-                ('Year', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ';'}),
-                ('Volume', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '('}),
-                ('Issue', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ')'}),
-                ('Pages', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '. '}),
-                ('DOI', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ''})
-            ]
-        }
-    },
-    'apa': {
-        'name': 'APA',
-        'description': 'American Psychological Association style',
-        'config': {
-            'author_format': 'Smith, A. A.',
-            'author_separator': ', ',
-            'et_al_limit': 7,
-            'doi_format': 'https://doi.org/10.10/xxx',
-            'doi_hyperlink': True,
-            'page_format': '122-128',
-            'final_punctuation': '.',
-            'numbering_style': '1.',
-            'journal_style': '{Full Journal Name}',
-            'elements': [
-                ('Authors', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ' '}),
-                ('Year', {'italic': False, 'bold': False, 'parentheses': True, 'separator': '). '}),
-                ('Title', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '. '}),
-                ('Journal', {'italic': True, 'bold': False, 'parentheses': False, 'separator': ', '}),
-                ('Volume', {'italic': True, 'bold': False, 'parentheses': False, 'separator': '('}),
-                ('Issue', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ')'}),
-                ('Pages', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '. '}),
-                ('DOI', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ''})
-            ]
-        }
-    },
-    'mla': {
-        'name': 'MLA',
-        'description': 'Modern Language Association style',
-        'config': {
-            'author_format': 'Smith, John A.',
-            'author_separator': ', and ',
-            'et_al_limit': 3,
-            'doi_format': 'doi:10.10/xxx',
-            'doi_hyperlink': True,
-            'page_format': '122-28',
-            'final_punctuation': '.',
-            'numbering_style': '1.',
-            'journal_style': '{Full Journal Name}',
-            'elements': [
-                ('Authors', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ' '}),
-                ('Title', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ' '}),
-                ('Journal', {'italic': True, 'bold': False, 'parentheses': False, 'separator': ', '}),
-                ('Volume', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '.'}),
-                ('Issue', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ' '}),
-                ('Year', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ', '}),
-                ('Pages', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '. '}),
-                ('DOI', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ''})
-            ]
-        }
-    },
-    'chicago': {
-        'name': 'Chicago',
-        'description': 'Chicago Manual of Style',
-        'config': {
-            'author_format': 'Smith, John A.',
-            'author_separator': ', and ',
-            'et_al_limit': 4,
-            'doi_format': 'https://doi.org/10.10/xxx',
-            'doi_hyperlink': True,
-            'page_format': '122-28',
-            'final_punctuation': '.',
-            'numbering_style': '1.',
-            'journal_style': '{Full Journal Name}',
-            'elements': [
-                ('Authors', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ' '}),
-                ('Title', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ' '}),
-                ('Journal', {'italic': True, 'bold': False, 'parentheses': False, 'separator': ' '}),
-                ('Volume', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ','}),
-                ('Issue', {'italic': False, 'bold': False, 'parentheses': True, 'separator': ' '}),
-                ('Year', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ': '}),
-                ('Pages', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '. '}),
-                ('DOI', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ''})
-            ]
-        }
-    },
-    'harvard': {
-        'name': 'Harvard',
-        'description': 'Harvard referencing style',
-        'config': {
-            'author_format': 'Smith, J.A.',
-            'author_separator': ', ',
-            'et_al_limit': 3,
-            'doi_format': 'Available at: https://doi.org/10.10/xxx',
-            'doi_hyperlink': True,
-            'page_format': 'pp.122-128',
-            'final_punctuation': '.',
-            'numbering_style': '1.',
-            'journal_style': '{Full Journal Name}',
-            'elements': [
-                ('Authors', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ' '}),
-                ('Year', {'italic': False, 'bold': False, 'parentheses': True, 'separator': ') '}),
-                ('Title', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '. '}),
-                ('Journal', {'italic': True, 'bold': False, 'parentheses': False, 'separator': ', '}),
-                ('Volume', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '('}),
-                ('Issue', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ')'}),
-                ('Pages', {'italic': False, 'bold': False, 'parentheses': False, 'separator': '. '}),
-                ('DOI', {'italic': False, 'bold': False, 'parentheses': False, 'separator': ''})
-            ]
-        }
+        'journal_abbr_no_dots': 'J Abbr'
     }
 }
 
@@ -571,14 +197,6 @@ if 'use_ampersand_checkbox' not in st.session_state:
 # Для хранения стиля журнала
 if 'journal_style' not in st.session_state:
     st.session_state.journal_style = '{Full Journal Name}'
-
-# Для хранения выбранного шаблона журнала
-if 'selected_journal_template' not in st.session_state:
-    st.session_state.selected_journal_template = 'custom'
-
-# Для хранения HTML стиля
-if 'html_style' not in st.session_state:
-    st.session_state.html_style = 'simple'
 
 class JournalAbbreviation:
     def __init__(self):
@@ -676,31 +294,6 @@ journal_abbrev = JournalAbbreviation()
 
 def get_text(key):
     return TRANSLATIONS[st.session_state.current_language].get(key, key)
-
-def get_cache_stats():
-    """Получает статистику кэша"""
-    return len(cache)
-
-def clear_cache():
-    """Очищает кэш"""
-    cache.clear()
-
-def get_cached_metadata(doi):
-    """Получает метаданные из кэша или извлекает их"""
-    cache_key = f"doi_{doi}"
-    
-    # Проверяем кэш
-    cached_data = cache.get(cache_key)
-    if cached_data:
-        return cached_data
-    
-    # Если нет в кэше, извлекаем данные
-    metadata = extract_metadata_sync(doi)
-    if metadata:
-        # Сохраняем в кэш на 48 часов
-        cache.set(cache_key, metadata, expire=48*60*60)
-    
-    return metadata
 
 def clean_text(text):
     """Очищает текст от HTML тегов и entities"""
@@ -866,7 +459,7 @@ def extract_metadata_batch(doi_list, progress_callback=None):
     
     # Первая попытка - пакетная обработка с ThreadPoolExecutor
     with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-        future_to_index = {executor.submit(get_cached_metadata, doi): i for i, doi in enumerate(doi_list)}
+        future_to_index = {executor.submit(extract_metadata_sync, doi): i for i, doi in enumerate(doi_list)}
         
         completed = 0
         for future in concurrent.futures.as_completed(future_to_index):
@@ -1554,7 +1147,7 @@ def format_cta_reference(metadata, style_config, for_preview=False):
         # Страницы
         elements.append((pages_formatted, False, False, ". ", False, None))
         
-        # DOI - весь элемент "doi:10.10/xxx" как гиперссылка
+        # DOI - всегда как гиперссылка в стиле CTA
         doi_text = f"doi:{metadata['doi']}"
         elements.append((doi_text, False, False, "", True, metadata['doi']))
         
@@ -1691,292 +1284,6 @@ def generate_statistics(formatted_refs):
         'needs_more_recent_references': needs_more_recent_references,
         'has_frequent_author': has_frequent_author
     }
-
-def generate_html_output(formatted_refs, style_config, html_style='simple'):
-    """Генерирует HTML вывод ссылок"""
-    if html_style == 'simple':
-        return generate_simple_html(formatted_refs, style_config)
-    elif html_style == 'numbered':
-        return generate_numbered_html(formatted_refs, style_config)
-    elif html_style == 'with_links':
-        return generate_linked_html(formatted_refs, style_config)
-    elif html_style == 'bootstrap':
-        return generate_bootstrap_html(formatted_refs, style_config)
-    else:
-        return generate_simple_html(formatted_refs, style_config)
-
-def generate_simple_html(formatted_refs, style_config):
-    """Генерирует простой HTML список"""
-    html_output = '<div class="references">\n'
-    
-    for i, (elements, is_error, metadata) in enumerate(formatted_refs):
-        if is_error:
-            html_output += f'<p class="reference error">{elements}</p>\n'
-        else:
-            if isinstance(elements, str):
-                html_output += f'<p class="reference">{elements}</p>\n'
-            else:
-                ref_html = ""
-                for value, italic, bold, separator, is_hyperlink, doi_value in elements:
-                    if is_hyperlink and doi_value:
-                        ref_html += f'<a href="https://doi.org/{doi_value}" target="_blank">{value}</a>'
-                    else:
-                        tags = ""
-                        if italic:
-                            tags += "<i>"
-                        if bold:
-                            tags += "<b>"
-                        
-                        ref_html += tags + html.escape(value)
-                        
-                        if bold:
-                            ref_html += "</b>"
-                        if italic:
-                            ref_html += "</i>"
-                    
-                    ref_html += html.escape(separator)
-                
-                html_output += f'<p class="reference">{ref_html}</p>\n'
-    
-    html_output += '</div>'
-    return html_output
-
-def generate_numbered_html(formatted_refs, style_config):
-    """Генерирует нумерованный HTML список"""
-    html_output = '<ol class="references">\n'
-    
-    for i, (elements, is_error, metadata) in enumerate(formatted_refs):
-        if is_error:
-            html_output += f'<li class="error">{elements}</li>\n'
-        else:
-            if isinstance(elements, str):
-                html_output += f'<li>{elements}</li>\n'
-            else:
-                ref_html = ""
-                for value, italic, bold, separator, is_hyperlink, doi_value in elements:
-                    if is_hyperlink and doi_value:
-                        ref_html += f'<a href="https://doi.org/{doi_value}" target="_blank">{value}</a>'
-                    else:
-                        tags = ""
-                        if italic:
-                            tags += "<i>"
-                        if bold:
-                            tags += "<b>"
-                        
-                        ref_html += tags + html.escape(value)
-                        
-                        if bold:
-                            ref_html += "</b>"
-                        if italic:
-                            ref_html += "</i>"
-                    
-                    ref_html += html.escape(separator)
-                
-                html_output += f'<li>{ref_html}</li>\n'
-    
-    html_output += '</ol>'
-    return html_output
-
-def generate_linked_html(formatted_refs, style_config):
-    """Генерирует HTML список с улучшенными ссылками"""
-    html_output = '''
-    <div class="references">
-        <style>
-            .reference { margin-bottom: 10px; line-height: 1.4; }
-            .reference a { color: #0066cc; text-decoration: none; }
-            .reference a:hover { text-decoration: underline; }
-            .error { background-color: #fff3cd; padding: 8px; border-left: 4px solid #ffc107; }
-        </style>
-    '''
-    
-    for i, (elements, is_error, metadata) in enumerate(formatted_refs):
-        if is_error:
-            html_output += f'<div class="reference error">{html.escape(str(elements))}</div>\n'
-        else:
-            if isinstance(elements, str):
-                html_output += f'<div class="reference">{html.escape(elements)}</div>\n'
-            else:
-                ref_html = ""
-                for value, italic, bold, separator, is_hyperlink, doi_value in elements:
-                    if is_hyperlink and doi_value:
-                        ref_html += f'<a href="https://doi.org/{doi_value}" target="_blank" title="Open DOI">{value}</a>'
-                    else:
-                        tags = ""
-                        if italic:
-                            tags += "<i>"
-                        if bold:
-                            tags += "<b>"
-                        
-                        ref_html += tags + html.escape(value)
-                        
-                        if bold:
-                            ref_html += "</b>"
-                        if italic:
-                            ref_html += "</i>"
-                    
-                    ref_html += html.escape(separator)
-                
-                html_output += f'<div class="reference">{ref_html}</div>\n'
-    
-    html_output += '</div>'
-    return html_output
-
-def generate_bootstrap_html(formatted_refs, style_config):
-    """Генерирует HTML с Bootstrap стилями"""
-    html_output = '''
-    <div class="container-fluid">
-        <div class="row">
-            <div class="col-12">
-                <div class="references">
-                    <style>
-                        .reference { 
-                            margin-bottom: 15px; 
-                            padding: 12px; 
-                            border-left: 4px solid #007bff;
-                            background-color: #f8f9fa;
-                            border-radius: 4px;
-                        }
-                        .reference:hover {
-                            background-color: #e9ecef;
-                            transition: background-color 0.3s ease;
-                        }
-                        .reference a { 
-                            color: #007bff; 
-                            text-decoration: none; 
-                            font-weight: 500;
-                        }
-                        .reference a:hover { 
-                            text-decoration: underline; 
-                        }
-                        .error { 
-                            border-left-color: #dc3545;
-                            background-color: #f8d7da;
-                        }
-                        .reference-number {
-                            font-weight: bold;
-                            color: #6c757d;
-                            margin-right: 8px;
-                        }
-                    </style>
-    '''
-    
-    for i, (elements, is_error, metadata) in enumerate(formatted_refs):
-        numbering = style_config.get('numbering_style', '1.')
-        number_text = ""
-        
-        if numbering != "No numbering":
-            if numbering == "1":
-                number_text = f"{i + 1} "
-            elif numbering == "1.":
-                number_text = f"{i + 1}. "
-            elif numbering == "1)":
-                number_text = f"{i + 1}) "
-            elif numbering == "(1)":
-                number_text = f"({i + 1}) "
-            elif numbering == "[1]":
-                number_text = f"[{i + 1}] "
-            else:
-                number_text = f"{i + 1}. "
-        
-        if is_error:
-            html_output += f'''
-            <div class="reference error">
-                <span class="reference-number">{number_text}</span>
-                {html.escape(str(elements))}
-            </div>
-            '''
-        else:
-            if isinstance(elements, str):
-                html_output += f'''
-                <div class="reference">
-                    <span class="reference-number">{number_text}</span>
-                    {html.escape(elements)}
-                </div>
-                '''
-            else:
-                ref_html = ""
-                for value, italic, bold, separator, is_hyperlink, doi_value in elements:
-                    if is_hyperlink and doi_value:
-                        ref_html += f'<a href="https://doi.org/{doi_value}" target="_blank" class="doi-link">{value}</a>'
-                    else:
-                        tags = ""
-                        if italic:
-                            tags += "<i>"
-                        if bold:
-                            tags += "<b>"
-                        
-                        ref_html += tags + html.escape(value)
-                        
-                        if bold:
-                            ref_html += "</b>"
-                        if italic:
-                            ref_html += "</i>"
-                    
-                    ref_html += html.escape(separator)
-                
-                html_output += f'''
-                <div class="reference">
-                    <span class="reference-number">{number_text}</span>
-                    {ref_html}
-                </div>
-                '''
-    
-    html_output += '''
-                </div>
-            </div>
-        </div>
-    </div>
-    '''
-    return html_output
-
-def apply_journal_template(template_key):
-    """Применяет шаблон журнала к настройкам"""
-    if template_key == 'custom':
-        return
-    
-    template = JOURNAL_TEMPLATES.get(template_key)
-    if not template:
-        return
-    
-    config = template['config']
-    
-    # Применяем настройки шаблона
-    st.session_state.num = config.get('numbering_style', "No numbering")
-    st.session_state.auth = config.get('author_format', "AA Smith")
-    st.session_state.sep = config.get('author_separator', ", ")
-    st.session_state.etal = config.get('et_al_limit', 0) or 0
-    st.session_state.use_and_checkbox = config.get('use_and_bool', False)
-    st.session_state.use_ampersand_checkbox = config.get('use_ampersand_bool', False)
-    st.session_state.doi = config.get('doi_format', "10.10/xxx")
-    st.session_state.doilink = config.get('doi_hyperlink', True)
-    st.session_state.page = config.get('page_format', "122–128")
-    st.session_state.punct = config.get('final_punctuation', "")
-    st.session_state.journal_style = config.get('journal_style', '{Full Journal Name}')
-    
-    # Сбрасываем флаги стилей
-    st.session_state.gost_style = False
-    st.session_state.acs_style = False
-    st.session_state.rsc_style = False
-    st.session_state.cta_style = False
-    
-    # Применяем элементы
-    elements = config.get('elements', [])
-    for i in range(8):
-        if i < len(elements):
-            element, element_config = elements[i]
-            st.session_state[f"el{i}"] = element
-            st.session_state[f"it{i}"] = element_config.get('italic', False)
-            st.session_state[f"bd{i}"] = element_config.get('bold', False)
-            st.session_state[f"pr{i}"] = element_config.get('parentheses', False)
-            st.session_state[f"sp{i}"] = element_config.get('separator', ". ")
-        else:
-            st.session_state[f"el{i}"] = ""
-            st.session_state[f"it{i}"] = False
-            st.session_state[f"bd{i}"] = False
-            st.session_state[f"pr{i}"] = False
-            st.session_state[f"sp{i}"] = ". "
-    
-    st.session_state.style_applied = True
 
 def process_references_with_progress(references, style_config, progress_container, status_container):
     """Обрабатывает список ссылок с отображением прогресса"""
@@ -2329,54 +1636,10 @@ def apply_imported_style(imported_style):
     st.session_state.style_applied = True
 
 def main():
-    st.set_page_config(
-        layout="wide",
-        page_title="Citation Style Constructor",
-        initial_sidebar_state="collapsed"
-    )
-    
-    # Адаптивный CSS для мобильных устройств
+    st.set_page_config(layout="wide")
     st.markdown("""
         <style>
-        .block-container { 
-            padding: 0.2rem; 
-            max-width: 100% !important;
-        }
-        @media (max-width: 768px) {
-            .block-container {
-                padding: 0.1rem;
-            }
-            .stSelectbox, .stTextInput, .stNumberInput, .stCheckbox, .stRadio, .stFileUploader, .stTextArea {
-                margin-bottom: 0.01rem;
-                font-size: 14px !important;
-            }
-            .stTextArea { 
-                height: 60px !important; 
-                font-size: 14px !important; 
-            }
-            .stButton > button { 
-                width: 100%; 
-                padding: 0.1rem; 
-                font-size: 14px; 
-                margin: 0.01rem; 
-            }
-            h1 { font-size: 1.2rem; margin-bottom: 0.1rem; }
-            h2 { font-size: 1.0rem; margin-bottom: 0.1rem; }
-            h3 { font-size: 0.9rem; margin-bottom: 0.05rem; }
-            label { font-size: 14px !important; }
-            .stMarkdown { font-size: 14px; }
-            .stCheckbox > label { font-size: 14px; }
-            .stRadio > label { font-size: 14px; }
-            .stDownloadButton > button { font-size: 14px; padding: 0.1rem; margin: 0.01rem; }
-            .element-row { margin: 0.01rem; padding: 0.01rem; }
-            .processing-header { font-size: 0.9rem; font-weight: bold; margin-bottom: 0.1rem; }
-            .processing-status { font-size: 0.8rem; margin-bottom: 0.05rem; }
-            .compact-row { margin-bottom: 0.1rem; }
-            .mobile-col { margin-bottom: 0.5rem; }
-        }
-        @media (min-width: 769px) {
-            .mobile-col { margin-bottom: 0; }
-        }
+        .block-container { padding: 0.2rem; }
         .stSelectbox, .stTextInput, .stNumberInput, .stCheckbox, .stRadio, .stFileUploader, .stTextArea {
             margin-bottom: 0.02rem;
         }
@@ -2394,20 +1657,6 @@ def main():
         .processing-header { font-size: 0.8rem; font-weight: bold; margin-bottom: 0.1rem; }
         .processing-status { font-size: 0.7rem; margin-bottom: 0.05rem; }
         .compact-row { margin-bottom: 0.1rem; }
-        .cache-info {
-            background-color: #f0f8ff;
-            padding: 8px;
-            border-radius: 4px;
-            border-left: 4px solid #007bff;
-            margin-bottom: 10px;
-            font-size: 0.8rem;
-        }
-        .template-description {
-            font-size: 0.7rem;
-            color: #666;
-            margin-top: -5px;
-            margin-bottom: 10px;
-        }
         </style>
     """, unsafe_allow_html=True)
 
@@ -2430,45 +1679,11 @@ def main():
 
     st.title(get_text('header'))
 
-    # Информация о кэше
-    cache_stats = get_cache_stats()
-    st.markdown(f'<div class="cache-info">{get_text("cache_status").format(cache_stats)}</div>', unsafe_allow_html=True)
-    
-    if st.button(get_text('clear_cache'), key="clear_cache_btn"):
-        clear_cache()
-        st.success("Cache cleared successfully!")
-        st.rerun()
-
-    # Адаптивный макет для мобильных устройств
+    # Трёхколоночный макет
     col1, col2, col3 = st.columns([1, 1, 1])
 
     with col1:
         st.subheader(get_text('general_settings'))
-        
-        # Шаблоны журналов
-        st.markdown(f"**{get_text('journal_templates')}**")
-        journal_options = [(JOURNAL_TEMPLATES[key]['name'], key) for key in JOURNAL_TEMPLATES.keys()]
-        journal_options.sort(key=lambda x: x[0])
-        
-        selected_journal = st.selectbox(
-            get_text('select_journal_template'),
-            options=journal_options,
-            format_func=lambda x: x[0],
-            index=next((i for i, (name, key) in enumerate(journal_options) if key == st.session_state.selected_journal_template), 0),
-            key="journal_template_selector"
-        )
-        
-        # Показываем описание шаблона
-        template_key = selected_journal[1]
-        template_info = JOURNAL_TEMPLATES.get(template_key, {})
-        if template_info.get('description'):
-            st.markdown(f'<div class="template-description">{template_info["description"]}</div>', unsafe_allow_html=True)
-        
-        # Применяем шаблон если он изменился
-        if template_key != st.session_state.selected_journal_template:
-            st.session_state.selected_journal_template = template_key
-            apply_journal_template(template_key)
-            st.rerun()
         
         # Стили пресеты с тултипом
         col_preset, col_info = st.columns([3, 1])
@@ -2508,7 +1723,6 @@ def main():
                 st.session_state.acs_style = False
                 st.session_state.rsc_style = False
                 st.session_state.cta_style = False
-                st.session_state.selected_journal_template = 'custom'
                 st.session_state.style_applied = True
                 st.rerun()
         
@@ -2540,7 +1754,6 @@ def main():
                 st.session_state.acs_style = True
                 st.session_state.rsc_style = False
                 st.session_state.cta_style = False
-                st.session_state.selected_journal_template = 'custom'
                 st.session_state.style_applied = True
                 st.rerun()
         
@@ -2572,7 +1785,6 @@ def main():
                 st.session_state.acs_style = False
                 st.session_state.rsc_style = True
                 st.session_state.cta_style = False
-                st.session_state.selected_journal_template = 'custom'
                 st.session_state.style_applied = True
                 st.rerun()
         
@@ -2604,7 +1816,6 @@ def main():
                 st.session_state.acs_style = False
                 st.session_state.rsc_style = False
                 st.session_state.cta_style = True
-                st.session_state.selected_journal_template = 'custom'
                 st.session_state.style_applied = True
                 st.rerun()
         
@@ -2632,39 +1843,21 @@ def main():
                 st.session_state[key] = default
         
         # Настройки нумерации
-        numbering_options = ["No numbering", "1", "1.", "1)", "(1)", "[1]"]
-        current_num = st.session_state.num
-        try:
-            num_index = numbering_options.index(current_num)
-        except ValueError:
-            num_index = 0
-            st.session_state.num = numbering_options[0]
-
         numbering_style = st.selectbox(
             get_text('numbering_style'), 
-            numbering_options, 
+            ["No numbering", "1", "1.", "1)", "(1)", "[1]"], 
             key="num", 
-            index=num_index
+            index=["No numbering", "1", "1.", "1)", "(1)", "[1]"].index(st.session_state.num)
         )
         
         # Настройки авторов в одной строке
         col_authors = st.columns([1, 1, 1])
         with col_authors[0]:
-            author_options = ["AA Smith", "A.A. Smith", "Smith AA", "Smith A.A", "Smith, A.A."]
-            # Безопасное получение индекса
-            current_auth = st.session_state.auth
-            try:
-                auth_index = author_options.index(current_auth)
-            except ValueError:
-                # Если значение не найдено, используем значение по умолчанию
-                auth_index = 0
-                st.session_state.auth = author_options[0]  # Обновляем session_state
-
             author_format = st.selectbox(
                 get_text('author_format'), 
-                author_options, 
+                ["AA Smith", "A.A. Smith", "Smith AA", "Smith A.A", "Smith, A.A."], 
                 key="auth", 
-                index=auth_index
+                index=["AA Smith", "A.A. Smith", "Smith AA", "Smith A.A", "Smith, A.A."].index(st.session_state.auth)
             )
         with col_authors[1]:
             author_separator = st.selectbox(
@@ -2721,19 +1914,18 @@ def main():
         )
         
         # Настройки страниц
-        doi_options = ["10.10/xxx", "doi:10.10/xxx", "DOI:10.10/xxx", "https://dx.doi.org/10.10/xxx"]
-        current_doi = st.session_state.doi
-        try:
-            doi_index = doi_options.index(current_doi)
-        except ValueError:
-            doi_index = 0
-            st.session_state.doi = doi_options[0]
-
-        doi_format = st.selectbox(
-            get_text('doi_format'), 
-            doi_options, 
-            key="doi", 
-            index=doi_index
+        page_options = ["122 - 128", "122-128", "122 – 128", "122–128", "122–8", "122"]
+        # Безопасное получение индекса для page_format
+        current_page = st.session_state.page
+        page_index = 3  # Значение по умолчанию "122–128"
+        if current_page in page_options:
+            page_index = page_options.index(current_page)
+        
+        page_format = st.selectbox(
+            get_text('page_format'), 
+            page_options, 
+            key="page", 
+            index=page_index
         )
         
         # Настройки DOI в одной строке
@@ -2753,19 +1945,11 @@ def main():
             )
         
         # Конечная пунктуация
-        punct_options = ["", "."]
-        current_punct = st.session_state.punct
-        try:
-            punct_index = punct_options.index(current_punct)
-        except ValueError:
-            punct_index = 0
-            st.session_state.punct = punct_options[0]
-
         final_punctuation = st.selectbox(
             get_text('final_punctuation'), 
-            punct_options, 
+            ["", "."], 
             key="punct", 
-            index=punct_index
+            index=["", "."].index(st.session_state.punct)
         )
 
     with col2:
@@ -3147,27 +2331,10 @@ def main():
         st.subheader(get_text('data_output'))
         output_method = st.radio(
             get_text('output_method'), 
-            ['DOCX', 'HTML', 'Text' if st.session_state.current_language == 'en' else 'Текст'], 
+            ['DOCX', 'Text' if st.session_state.current_language == 'en' else 'Текст'], 
             horizontal=True, 
             key="output_method"
         )
-        
-        # Настройки HTML вывода
-        if output_method == 'HTML':
-            st.markdown(f"**{get_text('html_output_options')}**")
-            html_style = st.selectbox(
-                get_text('html_style'),
-                [
-                    ('simple', get_text('html_simple')),
-                    ('numbered', get_text('html_numbered')), 
-                    ('with_links', get_text('html_with_links')),
-                    ('bootstrap', get_text('html_bootstrap'))
-                ],
-                key="html_style_selector",
-                format_func=lambda x: x[1],
-                index=0
-            )
-            st.session_state.html_style = html_style[0]
         
         # Текстовое поле для результатов (показывается только если выбран текстовый вывод)
         if output_method == 'Text' if st.session_state.current_language == 'en' else 'Текст':
@@ -3429,16 +2596,10 @@ def main():
                     st.session_state.output_text_value = ""
                     st.session_state.show_results = False
 
-                # Генерируем HTML если нужно
-                html_output = None
-                if output_method == 'HTML':
-                    html_output = generate_html_output(formatted_refs, style_config, st.session_state.html_style)
-
                 # Сохраняем данные для скачивания
                 st.session_state.download_data = {
                     'txt_bytes': txt_bytes,
-                    'output_doc_buffer': output_doc_buffer if output_method == 'DOCX' else None,
-                    'html_output': html_output if output_method == 'HTML' else None
+                    'output_doc_buffer': output_doc_buffer if output_method == 'DOCX' else None
                 }
                 
             except Exception as e:
@@ -3449,7 +2610,7 @@ def main():
 
         # Кнопки скачивания в одной строке
         if st.session_state.download_data:
-            col_download = st.columns(3)
+            col_download = st.columns(2)
             with col_download[0]:
                 st.download_button(
                     label=get_text('doi_txt'),
@@ -3465,26 +2626,11 @@ def main():
                     st.download_button(
                         label=get_text('references_docx'),
                         data=st.session_state.download_data['output_doc_buffer'],
-                        file_name='Reformatted references.docx',
+                        file_name='Reformatted references.docx',  # Изменено согласно требованию 3
                         mime='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
                         key="docx_download",
                         use_container_width=True
                     )
-                elif output_method == 'HTML' and st.session_state.download_data.get('html_output'):
-                    st.download_button(
-                        label=get_text('references_html'),
-                        data=st.session_state.download_data['html_output'],
-                        file_name='references.html',
-                        mime='text/html',
-                        key="html_download",
-                        use_container_width=True
-                    )
-            
-            with col_download[2]:
-                # Показываем HTML предпросмотр если выбран HTML вывод
-                if output_method == 'HTML' and st.session_state.download_data.get('html_output'):
-                    with st.expander("HTML Preview"):
-                        st.components.v1.html(st.session_state.download_data['html_output'], height=400, scrolling=True)
 
         # Управление стилями
         st.subheader("💾 Style Management")
@@ -3551,8 +2697,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
