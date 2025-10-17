@@ -25,7 +25,6 @@ from pathlib import Path
 import sqlite3
 from contextlib import contextmanager
 import requests
-from user_agents import parse
 
 # Настройка логирования
 logging.basicConfig(
@@ -864,8 +863,13 @@ class UserPreferencesManager:
     def detect_mobile_device(self, user_agent: str) -> bool:
         """Определение мобильного устройства по User-Agent"""
         try:
-            ua = parse(user_agent)
-            return ua.is_mobile
+            # Простая проверка по ключевым словам в User-Agent
+            mobile_keywords = [
+                'mobile', 'android', 'iphone', 'ipad', 'tablet', 
+                'blackberry', 'webos', 'windows phone'
+            ]
+            user_agent_lower = user_agent.lower()
+            return any(keyword in user_agent_lower for keyword in mobile_keywords)
         except:
             return False
 
@@ -3655,3 +3659,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
