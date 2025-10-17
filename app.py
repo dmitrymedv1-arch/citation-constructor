@@ -2335,22 +2335,44 @@ class UIComponents:
     
     def render_header(self):
         """Рендер заголовка и контролов"""
-        col_logo, col_lang, col_theme, col_view, col_actions = st.columns([2, 2, 2, 1, 2])
-        
+        col_logo, col_lang, col_theme, col_view = st.columns([2, 2, 2, 1])
+    
         with col_logo:
             st.title(get_text('header'))
-        
+    
         with col_lang:
             self._render_language_selector()
-        
+    
         with col_theme:
             self._render_theme_selector()
-        
+    
         with col_view:
             self._render_view_selector()
-        
-        with col_actions:
-            self._render_action_buttons()
+    
+        # Кнопки действий под заголовком
+        st.markdown("---")
+        self._render_action_buttons()
+
+    def _render_action_buttons(self):
+        """Рендер кнопок действий"""
+        st.markdown("**Quick Actions:**")
+        col1, col2, col3, col4 = st.columns(4)
+    
+        with col1:
+            if st.button(get_text('clear_button'), use_container_width=True, key="clear_button"):
+                self._clear_all_settings()
+    
+        with col2:
+            if st.button(get_text('back_button'), use_container_width=True, key="back_button"):
+                self._restore_previous_state()
+    
+        with col3:
+            if st.button("🔄 Reset View", use_container_width=True, key="reset_view"):
+                self._reset_view()
+    
+        with col4:
+            if st.button("💾 Save Session", use_container_width=True, key="save_session"):
+                self._save_session()
     
     def _render_language_selector(self):
         """Рендер селектора языка"""
@@ -3958,3 +3980,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
