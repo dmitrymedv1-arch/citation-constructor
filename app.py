@@ -272,6 +272,451 @@ TRANSLATIONS = {
         'dark_theme': 'Тёмная',
         'mobile_view': 'Мобильный вид',
         'desktop_view': 'Десктопный вид'
+    },
+    'de': {
+        'header': '🎨 Zitationsstil-Konstruktor',
+        'general_settings': '⚙️ Allgemeine Einstellungen',
+        'element_config': '📑 Elementkonfiguration',
+        'style_preview': '👀 Stilvorschau',
+        'data_input': '📁 Dateneingabe',
+        'data_output': '📤 Datenausgabe',
+        'numbering_style': 'Nummerierung:',
+        'author_format': 'Autoren:',
+        'author_separator': 'Trennzeichen:',
+        'et_al_limit': 'Et al nach:',
+        'use_and': "'und'",
+        'use_ampersand': "'&'",
+        'doi_format': 'DOI-Format:',
+        'doi_hyperlink': 'DOI als Hyperlink',
+        'page_format': 'Seiten:',
+        'final_punctuation': 'Schlusszeichen:',
+        'element': 'Element',
+        'italic': 'Kursiv',
+        'bold': 'Fett',
+        'parentheses': 'Klammern',
+        'separator': 'Trennzeichen',
+        'input_method': 'Eingabe:',
+        'output_method': 'Ausgabe:',
+        'select_docx': 'DOCX auswählen',
+        'enter_references': 'Referenzen eingeben (eine pro Zeile)',
+        'references': 'Referenzen:',
+        'results': 'Ergebnisse:',
+        'process': '🚀 Verarbeiten',
+        'example': 'Beispiel:',
+        'error_select_element': 'Wählen Sie mindestens ein Element aus!',
+        'processing': '⏳ Verarbeitung...',
+        'upload_file': 'Laden Sie eine Datei hoch!',
+        'enter_references_error': 'Geben Sie Referenzen ein!',
+        'select_docx_output': 'Wählen Sie DOCX-Ausgabe zum Herunterladen!',
+        'doi_txt': '📄 DOI (TXT)',
+        'references_docx': '📋 Referenzen (DOCX)',
+        'found_references': '{} Referenzen gefunden.',
+        'found_references_text': '{} Referenzen im Text gefunden.',
+        'statistics': 'Statistik: {} DOI gefunden, {} nicht gefunden.',
+        'language': 'Sprache:',
+        'gost_style': 'GOST-Stil anwenden',
+        'export_style': '📤 Stil exportieren',
+        'import_style': '📥 Stil importieren',
+        'export_file_name': 'Dateiname:',
+        'import_file': 'Stildatei auswählen:',
+        'export_success': 'Stil erfolgreich exportiert!',
+        'import_success': 'Stil erfolgreich importiert!',
+        'import_error': 'Fehler beim Importieren der Stildatei!',
+        'processing_status': 'Verarbeite Referenzen...',
+        'current_reference': 'Aktuell: {}',
+        'processed_stats': 'Verarbeitet: {}/{} | Gefunden: {} | Fehler: {}',
+        'time_remaining': 'Geschätzte verbleibende Zeit: {}',
+        'duplicate_reference': '🔄 Wiederholte Referenz (Siehe #{})',
+        'batch_processing': 'Stapelverarbeitung DOI...',
+        'extracting_metadata': 'Extrahiere Metadaten...',
+        'checking_duplicates': 'Prüfe auf Duplikate...',
+        'retrying_failed': 'Wiederhole fehlgeschlagene DOI-Anfragen...',
+        'bibliographic_search': 'Suche nach bibliografischen Daten...',
+        'style_presets': 'Stilvorlagen',
+        'gost_button': 'GOST',
+        'acs_button': 'ACS (MDPI)',
+        'rsc_button': 'RSC',
+        'cta_button': 'CTA',
+        'style_preset_tooltip': 'Hier sind einige Stile, die von einzelnen Verlagen gepflegt werden. Für große Verlage (Elsevier, Springer Nature, Wiley) variiert der Stil von Journal zu Journal. Um Referenzen für ein bestimmtes Journal zu erstellen (oder neu zu formatieren), verwenden Sie den Zitationsstil-Konstruktor.',
+        'journal_style': 'Journal-Stil:',
+        'full_journal_name': 'Vollständiger Journalname',
+        'journal_abbr_with_dots': 'J. Abk.',
+        'journal_abbr_no_dots': 'J Abk',
+        'short_guide_title': 'Kurzanleitung zur Konvertierung von DOI-basierten Referenzen',
+        'step_1': '❶ Wählen Sie einen vorgefertigten Referenzstil (GOST, ACS(MDPI), RSC oder CTA) oder erstellen Sie Ihren eigenen Stil, indem Sie die Reihenfolge, Gestaltung und Zeichensetzung der Elementkonfigurationen auswählen',
+        'step_1_note': '(!) Die Zeichensetzungsfelder ermöglichen die Aufnahme verschiedener Elemente zwischen Elementkonfigurationen (einfache Zeichensetzung, Vol., Issue…)',
+        'step_2': '❷ Verwenden Sie dann die Stilvorlagen, um bestimmte Elementkonfigurationen für jede neu formatierte Referenz zu ändern.',
+        'step_3': '❸ Die Stilvorschau-Funktion ermöglicht es Benutzern, die endgültige Form ihres Referenzstils zu visualisieren',
+        'step_4': '❹ Wenn der endgültige Stil geeignet ist, wählen Sie die Option Docx oder Text im Abschnitt Dateneingabe und laden Sie die entsprechenden Informationen hoch. Wählen Sie dann im Abschnitt Datenausgabe die erforderlichen Optionen und drücken Sie "Verarbeiten", um die Neuformatierung zu starten.',
+        'step_5': '❺ Nach Abschluss der Verarbeitung laden Sie die neu formatierten Referenzen in Ihrem bevorzugten Format herunter.',
+        'step_5_note': '(!) Die Ausgabe der Docx-Datei wird empfohlen, da sie die Formatierung beibehält (z.B. fett, kursiv und Hyperlinks) und zusätzliche Statistiken am Ende des Dokuments enthält.',
+        'step_6': '❻ Speichern Sie Ihre endgültige Version des Stils, damit Sie ihn in der nächsten Sitzung erneut hochladen können. Verwenden Sie dazu den Abschnitt Stilmanagement.',
+        'validation_error_no_elements': 'Bitte konfigurieren Sie mindestens ein Element oder wählen Sie einen vorgefertigten Stil!',
+        'validation_error_too_many_references': 'Zu viele Referenzen (maximal {} erlaubt)',
+        'validation_warning_few_references': 'Wenige Referenzen für aussagekräftige Statistiken',
+        'cache_initialized': 'Cache erfolgreich initialisiert',
+        'cache_cleared': 'Cache erfolgreich gelöscht',
+        'theme_selector': 'Thema:',
+        'light_theme': 'Hell',
+        'dark_theme': 'Dunkel',
+        'mobile_view': 'Mobile Ansicht',
+        'desktop_view': 'Desktop Ansicht'
+    },
+    'es': {
+        'header': '🎨 Constructor de Estilos de Citas',
+        'general_settings': '⚙️ Configuración General',
+        'element_config': '📑 Configuración de Elementos',
+        'style_preview': '👀 Vista Previa del Estilo',
+        'data_input': '📁 Entrada de Datos',
+        'data_output': '📤 Salida de Datos',
+        'numbering_style': 'Numeración:',
+        'author_format': 'Autores:',
+        'author_separator': 'Separador:',
+        'et_al_limit': 'Et al después de:',
+        'use_and': "'y'",
+        'use_ampersand': "'&'",
+        'doi_format': 'Formato DOI:',
+        'doi_hyperlink': 'DOI como hipervínculo',
+        'page_format': 'Páginas:',
+        'final_punctuation': 'Puntuación final:',
+        'element': 'Elemento',
+        'italic': 'Cursiva',
+        'bold': 'Negrita',
+        'parentheses': 'Paréntesis',
+        'separator': 'Separador',
+        'input_method': 'Entrada:',
+        'output_method': 'Salida:',
+        'select_docx': 'Seleccionar DOCX',
+        'enter_references': 'Ingresar referencias (una por línea)',
+        'references': 'Referencias:',
+        'results': 'Resultados:',
+        'process': '🚀 Procesar',
+        'example': 'Ejemplo:',
+        'error_select_element': '¡Seleccione al menos un elemento!',
+        'processing': '⏳ Procesando...',
+        'upload_file': '¡Suba un archivo!',
+        'enter_references_error': '¡Ingrese referencias!',
+        'select_docx_output': '¡Seleccione salida DOCX para descargar!',
+        'doi_txt': '📄 DOI (TXT)',
+        'references_docx': '📋 Referencias (DOCX)',
+        'found_references': 'Se encontraron {} referencias.',
+        'found_references_text': 'Se encontraron {} referencias en el texto.',
+        'statistics': 'Estadísticas: {} DOI encontrados, {} no encontrados.',
+        'language': 'Idioma:',
+        'gost_style': 'Aplicar Estilo GOST',
+        'export_style': '📤 Exportar Estilo',
+        'import_style': '📥 Importar Estilo',
+        'export_file_name': 'Nombre del archivo:',
+        'import_file': 'Seleccionar archivo de estilo:',
+        'export_success': '¡Estilo exportado exitosamente!',
+        'import_success': '¡Estilo importado exitosamente!',
+        'import_error': '¡Error al importar archivo de estilo!',
+        'processing_status': 'Procesando referencias...',
+        'current_reference': 'Actual: {}',
+        'processed_stats': 'Procesadas: {}/{} | Encontradas: {} | Errores: {}',
+        'time_remaining': 'Tiempo restante estimado: {}',
+        'duplicate_reference': '🔄 Referencia Repetida (Ver #{})',
+        'batch_processing': 'Procesamiento por lotes DOI...',
+        'extracting_metadata': 'Extrayendo metadatos...',
+        'checking_duplicates': 'Verificando duplicados...',
+        'retrying_failed': 'Reintentando solicitudes DOI fallidas...',
+        'bibliographic_search': 'Buscando por datos bibliográficos...',
+        'style_presets': 'Estilos Predefinidos',
+        'gost_button': 'GOST',
+        'acs_button': 'ACS (MDPI)',
+        'rsc_button': 'RSC',
+        'cta_button': 'CTA',
+        'style_preset_tooltip': 'Aquí hay algunos estilos mantenidos por editoriales individuales. Para editoriales importantes (Elsevier, Springer Nature, Wiley), el estilo varía de revista en revista. Para crear (or reformatear) referencias para una revista específica, use el Constructor de Estilos de Citas.',
+        'journal_style': 'Estilo de revista:',
+        'full_journal_name': 'Nombre Completo de la Revista',
+        'journal_abbr_with_dots': 'J. Abrev.',
+        'journal_abbr_no_dots': 'J Abrev',
+        'short_guide_title': 'Una guía breve para la conversión de referencias basadas en doi',
+        'step_1': '❶ Seleccione un estilo de referencia listo (GOST, ACS(MDPI), RSC o CTA), o cree su propio estilo seleccionando la secuencia, diseño y puntuación de las configuraciones de elementos',
+        'step_1_note': '(!) Los cuadros de puntuación permiten incluir varios elementos entre configuraciones de elementos (puntuación simple, Vol., Issue…)',
+        'step_2': '❷ Luego, use los Estilos Predefinidos para cambiar ciertas configuraciones de elementos para cada referencia reformateada.',
+        'step_3': '❸ La función de Vista Previa del Estilo permite a los usuarios visualizar la forma final de su estilo de referencia',
+        'step_4': '❹ Si el estilo final es apropiado, seleccione la opción Docx o Texto en la sección de Entrada de Datos y cargue la información correspondiente. Luego, en la sección de Salida de Datos, seleccione las opciones requeridas y presione "Procesar" para iniciar el reformateo.',
+        'step_5': '❺ Después de completar el procesamiento, descargue las referencias reformateadas en su formato preferido.',
+        'step_5_note': '(!) Se recomienda generar el archivo Docx, ya que conserva el formato (por ejemplo, negrita, cursiva e hipervínculos) e incluye estadísticas adicionales al final del documento.',
+        'step_6': '❻ Después de crear su versión final del estilo, guárdela para poder cargarla nuevamente en la siguiente sesión. Use la sección Gestión de Estilos para este propósito.',
+        'validation_error_no_elements': '¡Por favor configure al menos un elemento o seleccione un estilo predefinido!',
+        'validation_error_too_many_references': 'Demasiadas referencias (máximo {} permitidas)',
+        'validation_warning_few_references': 'Pocas referencias para estadísticas significativas',
+        'cache_initialized': 'Caché inicializado exitosamente',
+        'cache_cleared': 'Caché limpiado exitosamente',
+        'theme_selector': 'Tema:',
+        'light_theme': 'Claro',
+        'dark_theme': 'Oscuro',
+        'mobile_view': 'Vista Móvil',
+        'desktop_view': 'Vista Escritorio'
+    },
+    'it': {
+        'header': '🎨 Costruttore di Stili di Citazione',
+        'general_settings': '⚙️ Impostazioni Generali',
+        'element_config': '📑 Configurazione Elementi',
+        'style_preview': '👀 Anteprima Stile',
+        'data_input': '📁 Input Dati',
+        'data_output': '📤 Output Dati',
+        'numbering_style': 'Numerazione:',
+        'author_format': 'Autori:',
+        'author_separator': 'Separatore:',
+        'et_al_limit': 'Et al dopo:',
+        'use_and': "'e'",
+        'use_ampersand': "'&'",
+        'doi_format': 'Formato DOI:',
+        'doi_hyperlink': 'DOI come collegamento ipertestuale',
+        'page_format': 'Pagine:',
+        'final_punctuation': 'Punteggiatura finale:',
+        'element': 'Elemento',
+        'italic': 'Corsivo',
+        'bold': 'Grassetto',
+        'parentheses': 'Parentesi',
+        'separator': 'Separatore',
+        'input_method': 'Input:',
+        'output_method': 'Output:',
+        'select_docx': 'Seleziona DOCX',
+        'enter_references': 'Inserisci riferimenti (uno per riga)',
+        'references': 'Riferimenti:',
+        'results': 'Risultati:',
+        'process': '🚀 Elabora',
+        'example': 'Esempio:',
+        'error_select_element': 'Seleziona almeno un elemento!',
+        'processing': '⏳ Elaborazione...',
+        'upload_file': 'Carica un file!',
+        'enter_references_error': 'Inserisci i riferimenti!',
+        'select_docx_output': 'Seleziona output DOCX da scaricare!',
+        'doi_txt': '📄 DOI (TXT)',
+        'references_docx': '📋 Riferimenti (DOCX)',
+        'found_references': 'Trovati {} riferimenti.',
+        'found_references_text': 'Trovati {} riferimenti nel testo.',
+        'statistics': 'Statistiche: {} DOI trovati, {} non trovati.',
+        'language': 'Lingua:',
+        'gost_style': 'Applica Stile GOST',
+        'export_style': '📤 Esporta Stile',
+        'import_style': '📥 Importa Stile',
+        'export_file_name': 'Nome file:',
+        'import_file': 'Seleziona file stile:',
+        'export_success': 'Stile esportato con successo!',
+        'import_success': 'Stile importato con successo!',
+        'import_error': 'Errore durante l\'importazione del file stile!',
+        'processing_status': 'Elaborazione riferimenti...',
+        'current_reference': 'Attuale: {}',
+        'processed_stats': 'Elaborati: {}/{} | Trovati: {} | Errori: {}',
+        'time_remaining': 'Tempo rimanente stimato: {}',
+        'duplicate_reference': '🔄 Riferimento Ripetuto (Vedi #{})',
+        'batch_processing': 'Elaborazione batch DOI...',
+        'extracting_metadata': 'Estrazione metadati...',
+        'checking_duplicates': 'Controllo duplicati...',
+        'retrying_failed': 'Riprova richieste DOI fallite...',
+        'bibliographic_search': 'Ricerca per dati bibliografici...',
+        'style_presets': 'Stili Preimpostati',
+        'gost_button': 'GOST',
+        'acs_button': 'ACS (MDPI)',
+        'rsc_button': 'RSC',
+        'cta_button': 'CTA',
+        'style_preset_tooltip': 'Ecco alcuni stili mantenuti da singoli editori. Per gli editori principali (Elsevier, Springer Nature, Wiley), lo stile varia da rivista a rivista. Per creare (o riformattare) riferimenti per una rivista specifica, utilizza il Costruttore di Stili di Citazione.',
+        'journal_style': 'Stile rivista:',
+        'full_journal_name': 'Nome Completo Rivista',
+        'journal_abbr_with_dots': 'Riv. Abbr.',
+        'journal_abbr_no_dots': 'Riv Abbr',
+        'short_guide_title': 'Una breve guida per la conversione di riferimenti basati su doi',
+        'step_1': '❶ Seleziona uno stile di riferimento pronto (GOST, ACS(MDPI), RSC o CTA), o crea il tuo stile personalizzato selezionando la sequenza, il design e la punteggiatura delle configurazioni degli elementi',
+        'step_1_note': '(!) Le caselle di punteggiatura consentono di includere vari elementi tra le configurazioni degli elementi (punteggiatura semplice, Vol., Issue…)',
+        'step_2': '❷ Quindi, utilizza gli Stili Preimpostati per modificare determinate configurazioni di elementi per ogni riferimento riformattato.',
+        'step_3': '❸ La funzione Anteprima Stile consente agli utenti di visualizzare la forma finale del loro stile di riferimento',
+        'step_4': '❹ Se lo stile finale è appropriato, seleziona l\'opzione Docx o Testo nella sezione Input Dati e carica le informazioni corrispondenti. Quindi, nella sezione Output Dati, seleziona le opzioni richieste e premi "Elabora" per avviare la riformattazione.',
+        'step_5': '❺ Dopo il completamento dell\'elaborazione, scarica i riferimenti riformattati nel formato preferito.',
+        'step_5_note': '(!) Si consiglia di output il file Docx, in quanto conserva la formattazione (ad esempio, grassetto, corsivo e collegamenti ipertestuali) e include statistiche aggiuntive alla fine del documento.',
+        'step_6': '❻ Dopo aver creato la versione finale dello stile, salvala in modo da poterla caricare nuovamente nella sessione successiva. Utilizza la sezione Gestione Stili per questo scopo.',
+        'validation_error_no_elements': 'Si prega di configurare almeno un elemento o selezionare uno stile preimpostato!',
+        'validation_error_too_many_references': 'Troppi riferimenti (massimo {} consentiti)',
+        'validation_warning_few_references': 'Pochi riferimenti per statistiche significative',
+        'cache_initialized': 'Cache inizializzato con successo',
+        'cache_cleared': 'Cache cancellato con successo',
+        'theme_selector': 'Tema:',
+        'light_theme': 'Chiaro',
+        'dark_theme': 'Scuro',
+        'mobile_view': 'Vista Mobile',
+        'desktop_view': 'Vista Desktop'
+    },
+    'ja': {
+        'header': '🎨 引用スタイル構築ツール',
+        'general_settings': '⚙️ 一般設定',
+        'element_config': '📑 要素設定',
+        'style_preview': '👀 スタイルプレビュー',
+        'data_input': '📁 データ入力',
+        'data_output': '📤 データ出力',
+        'numbering_style': '番号付け:',
+        'author_format': '著者:',
+        'author_separator': '区切り文字:',
+        'et_al_limit': 'Et al 以後:',
+        'use_and': "'および'",
+        'use_ampersand': "'&'",
+        'doi_format': 'DOI形式:',
+        'doi_hyperlink': 'DOIをハイパーリンクとして',
+        'page_format': 'ページ:',
+        'final_punctuation': '終了句読点:',
+        'element': '要素',
+        'italic': '斜体',
+        'bold': '太字',
+        'parentheses': '括弧',
+        'separator': '区切り文字',
+        'input_method': '入力:',
+        'output_method': '出力:',
+        'select_docx': 'DOCXを選択',
+        'enter_references': '参考文献を入力（1行に1つ）',
+        'references': '参考文献:',
+        'results': '結果:',
+        'process': '🚀 処理',
+        'example': '例:',
+        'error_select_element': '少なくとも1つの要素を選択してください！',
+        'processing': '⏳ 処理中...',
+        'upload_file': 'ファイルをアップロードしてください！',
+        'enter_references_error': '参考文献を入力してください！',
+        'select_docx_output': 'ダウンロードするDOCX出力を選択してください！',
+        'doi_txt': '📄 DOI (TXT)',
+        'references_docx': '📋 参考文献 (DOCX)',
+        'found_references': '{}件の参考文献が見つかりました。',
+        'found_references_text': 'テキスト内で{}件の参考文献が見つかりました。',
+        'statistics': '統計: {}件のDOIが見つかりました、{}件は見つかりませんでした。',
+        'language': '言語:',
+        'gost_style': 'GOSTスタイルを適用',
+        'export_style': '📤 スタイルをエクスポート',
+        'import_style': '📥 スタイルをインポート',
+        'export_file_name': 'ファイル名:',
+        'import_file': 'スタイルファイルを選択:',
+        'export_success': 'スタイルのエクスポートが成功しました！',
+        'import_success': 'スタイルのインポートが成功しました！',
+        'import_error': 'スタイルファイルのインポートエラー！',
+        'processing_status': '参考文献を処理中...',
+        'current_reference': '現在: {}',
+        'processed_stats': '処理済み: {}/{} | 見つかった: {} | エラー: {}',
+        'time_remaining': '推定残り時間: {}',
+        'duplicate_reference': '🔄 重複参考文献 (参照 #{})',
+        'batch_processing': 'DOIのバッチ処理...',
+        'extracting_metadata': 'メタデータを抽出中...',
+        'checking_duplicates': '重複をチェック中...',
+        'retrying_failed': '失敗したDOIリクエストを再試行中...',
+        'bibliographic_search': '書誌データで検索中...',
+        'style_presets': 'スタイルプリセット',
+        'gost_button': 'GOST',
+        'acs_button': 'ACS (MDPI)',
+        'rsc_button': 'RSC',
+        'cta_button': 'CTA',
+        'style_preset_tooltip': 'ここには、個々の出版社が維持しているいくつかのスタイルがあります。主要な出版社（Elsevier、Springer Nature、Wiley）の場合、スタイルはジャーナルごとに異なります。特定のジャーナルの参考文献を作成（または再フォーマット）するには、引用スタイル構築ツールを使用してください。',
+        'journal_style': 'ジャーナルスタイル:',
+        'full_journal_name': '完全なジャーナル名',
+        'journal_abbr_with_dots': 'J. 略称',
+        'journal_abbr_no_dots': 'J 略称',
+        'short_guide_title': 'DOIベースの参考文献変換の短いガイド',
+        'step_1': '❶ 既製の参考文献スタイル（GOST、ACS(MDPI)、RSC、CTA）を選択するか、要素設定の順序、デザイン、句読点を選択して独自のスタイルを作成します',
+        'step_1_note': '（！）句読点ボックスを使用すると、要素設定間にさまざまな項目を含めることができます（簡単な句読点、Vol.、Issue…）',
+        'step_2': '❷ 次に、スタイルプリセットを使用して、再フォーマットされた各参考文献の特定の要素設定を変更します。',
+        'step_3': '❸ スタイルプレビュー機能により、ユーザーは参考文献スタイルの最終的な形を視覚化できます',
+        'step_4': '❹ 最終的なスタイルが適切な場合は、データ入力セクションでDocxまたはテキストオプションを選択し、対応する情報をアップロードします。次に、データ出力セクションで必要なオプションを選択し、「処理」を押して再フォーマットを開始します。',
+        'step_5': '❺ 処理が完了した後、希望の形式で再フォーマットされた参考文献をダウンロードします。',
+        'step_5_note': '（！）Docxファイルの出力をお勧めします。これは、フォーマット（太字、斜体、ハイパーリンクなど）を保持し、文書の最後に追加の統計情報を含めるためです。',
+        'step_6': '❻ スタイルの最終バージョンを作成した後、次のセッションで再度アップロードできるように保存します。この目的にはスタイル管理セクションを使用してください。',
+        'validation_error_no_elements': '少なくとも1つの要素を設定するか、プリセットスタイルを選択してください！',
+        'validation_error_too_many_references': '参考文献が多すぎます（最大{}件まで許可）',
+        'validation_warning_few_references': '有意な統計のための参考文献が少なすぎます',
+        'cache_initialized': 'キャッシュの初期化に成功しました',
+        'cache_cleared': 'キャッシュのクリアに成功しました',
+        'theme_selector': 'テーマ:',
+        'light_theme': 'ライト',
+        'dark_theme': 'ダーク',
+        'mobile_view': 'モバイル表示',
+        'desktop_view': 'デスクトップ表示'
+    },
+    'zh': {
+        'header': '🎨 引文样式构建器',
+        'general_settings': '⚙️ 通用设置',
+        'element_config': '📑 元素配置',
+        'style_preview': '👀 样式预览',
+        'data_input': '📁 数据输入',
+        'data_output': '📤 数据输出',
+        'numbering_style': '编号:',
+        'author_format': '作者:',
+        'author_separator': '分隔符:',
+        'et_al_limit': 'Et al 在之后:',
+        'use_and': "'和'",
+        'use_ampersand': "'&'",
+        'doi_format': 'DOI格式:',
+        'doi_hyperlink': 'DOI作为超链接',
+        'page_format': '页面:',
+        'final_punctuation': '结束标点:',
+        'element': '元素',
+        'italic': '斜体',
+        'bold': '粗体',
+        'parentheses': '括号',
+        'separator': '分隔符',
+        'input_method': '输入:',
+        'output_method': '输出:',
+        'select_docx': '选择DOCX',
+        'enter_references': '输入参考文献（每行一个）',
+        'references': '参考文献:',
+        'results': '结果:',
+        'process': '🚀 处理',
+        'example': '示例:',
+        'error_select_element': '请选择至少一个元素！',
+        'processing': '⏳ 处理中...',
+        'upload_file': '请上传文件！',
+        'enter_references_error': '请输入参考文献！',
+        'select_docx_output': '请选择要下载的DOCX输出！',
+        'doi_txt': '📄 DOI (TXT)',
+        'references_docx': '📋 参考文献 (DOCX)',
+        'found_references': '找到 {} 条参考文献。',
+        'found_references_text': '在文本中找到 {} 条参考文献。',
+        'statistics': '统计: 找到 {} 条DOI，{} 条未找到。',
+        'language': '语言:',
+        'gost_style': '应用GOST样式',
+        'export_style': '📤 导出样式',
+        'import_style': '📥 导入样式',
+        'export_file_name': '文件名:',
+        'import_file': '选择样式文件:',
+        'export_success': '样式导出成功！',
+        'import_success': '样式导入成功！',
+        'import_error': '导入样式文件错误！',
+        'processing_status': '处理参考文献中...',
+        'current_reference': '当前: {}',
+        'processed_stats': '已处理: {}/{} | 找到: {} | 错误: {}',
+        'time_remaining': '预计剩余时间: {}',
+        'duplicate_reference': '🔄 重复参考文献 (参见 #{})',
+        'batch_processing': '批量处理DOI...',
+        'extracting_metadata': '提取元数据中...',
+        'checking_duplicates': '检查重复项...',
+        'retrying_failed': '重试失败的DOI请求...',
+        'bibliographic_search': '通过书目数据搜索...',
+        'style_presets': '样式预设',
+        'gost_button': 'GOST',
+        'acs_button': 'ACS (MDPI)',
+        'rsc_button': 'RSC',
+        'cta_button': 'CTA',
+        'style_preset_tooltip': '这里是一些由各个出版商维护的样式。对于主要出版商（Elsevier、Springer Nature、Wiley），样式因期刊而异。要为特定期刊创建（或重新格式化）参考文献，请使用引文样式构建器。',
+        'journal_style': '期刊样式:',
+        'full_journal_name': '完整期刊名称',
+        'journal_abbr_with_dots': '期刊 缩写',
+        'journal_abbr_no_dots': '期刊缩写',
+        'short_guide_title': '基于DOI的参考文献转换简短指南',
+        'step_1': '❶ 选择现成的参考文献样式（GOST、ACS(MDPI)、RSC或CTA），或通过选择元素配置的顺序、设计和标点创建自己的样式',
+        'step_1_note': '（！）标点框允许在元素配置之间包含各种项目（简单标点、卷、期…）',
+        'step_2': '❷ 然后，使用样式预设更改每个重新格式化的参考文献的特定元素配置。',
+        'step_3': '❸ 样式预览功能使用户能够可视化其参考文献样式的最终形式',
+        'step_4': '❹ 如果最终样式合适，请在数据输入部分选择Docx或文本选项并上传相应信息。然后在数据输出部分选择所需选项并按"处理"开始重新格式化。',
+        'step_5': '❺ 处理完成后，以您喜欢的格式下载重新格式化的参考文献。',
+        'step_5_note': '（！）建议输出Docx文件，因为它保留格式（例如粗体、斜体和超链接）并在文档末尾包含附加统计信息。',
+        'step_6': '❻ 创建样式的最终版本后，保存它以便在下一个会话中再次上传。使用样式管理部分实现此目的。',
+        'validation_error_no_elements': '请配置至少一个元素或选择预设样式！',
+        'validation_error_too_many_references': '参考文献太多（最多允许 {} 条）',
+        'validation_warning_few_references': '参考文献太少，无法生成有意义的统计',
+        'cache_initialized': '缓存初始化成功',
+        'cache_cleared': '缓存清除成功',
+        'theme_selector': '主题:',
+        'light_theme': '浅色',
+        'dark_theme': '深色',
+        'mobile_view': '移动视图',
+        'desktop_view': '桌面视图'
     }
 }
 
@@ -597,175 +1042,81 @@ def get_text(key: str) -> str:
     """Получение перевода по ключу"""
     return TRANSLATIONS[st.session_state.current_language].get(key, key)
 
-# УЛУЧШЕННАЯ СИСТЕМА СОКРАЩЕНИЯ ЖУРНАЛОВ
-class EnhancedJournalAbbreviation:
+# Базовые классы форматирования
+class JournalAbbreviation:
     def __init__(self):
         self.ltwa_data = {}
         self.load_ltwa_data()
         self.uppercase_abbreviations = {'acs', 'ecs', 'rsc', 'ieee', 'iet', 'acm', 'aims', 'bmc', 'bmj', 'npj'}
-        
-        # Паттерны для определения серий и секций в названиях журналов
-        self.series_patterns = [
-            r'\b(?:[A-Z]|[IVX]+)(?:\s*[&,]\s*[A-Z])*\s*[:]',  # Серии типа A:, B:, I:, II:, A & B:
-            r'\bPart\s+[A-ZIVX]+\b',  # Part A, Part I
-            r'\bSeries\s+[A-ZIVX]+\b',  # Series A
-            r'\bVol\.?\s*\d+',  # Vol. 1, Vol 2
-        ]
-        
-        # Словарь для сохранения оригинальных серий/секций
-        self.preserved_sections = {}
     
     def load_ltwa_data(self):
         """Загружает данные сокращений из файла ltwa.csv"""
         try:
             csv_path = Config.LTWA_CSV_PATH
-            if os.path.exists(csv_path):
-                with open(csv_path, 'r', encoding='utf-8') as f:
-                    reader = csv.reader(f, delimiter='\t')
-                    next(reader)
-                    for row in reader:
-                        if len(row) >= 2:
-                            word = row[0].strip()
-                            abbreviation = row[1].strip() if row[1].strip() else None
-                            self.ltwa_data[word] = abbreviation
-            else:
-                logger.warning(f"Файл {csv_path} не найден, используется базовая логика сокращений")
+            with open(csv_path, 'r', encoding='utf-8') as f:
+                reader = csv.reader(f, delimiter='\t')
+                next(reader)
+                for row in reader:
+                    if len(row) >= 2:
+                        word = row[0].strip()
+                        abbreviation = row[1].strip() if row[1].strip() else None
+                        self.ltwa_data[word] = abbreviation
+        except FileNotFoundError:
+            logger.warning("Файл ltwa.csv не найден")
         except Exception as e:
             logger.error(f"Ошибка загрузки ltwa.csv: {e}")
     
-    def extract_and_preserve_sections(self, journal_name: str) -> Tuple[str, List[str]]:
-        """Извлекает и сохраняет серии/секции из названия журнала"""
-        if not journal_name:
-            return journal_name, []
-        
-        preserved_sections = []
-        clean_name = journal_name
-        
-        # Поиск и сохранение серий/секций
-        for pattern in self.series_patterns:
-            matches = re.finditer(pattern, journal_name, re.IGNORECASE)
-            for match in matches:
-                section = match.group(0)
-                preserved_sections.append(section)
-                # Заменяем найденную секцию на маркер
-                clean_name = clean_name.replace(section, f"__SECTION_{len(preserved_sections)}__")
-        
-        return clean_name, preserved_sections
-    
-    def restore_sections(self, abbreviated_name: str, preserved_sections: List[str]) -> str:
-        """Восстанавливает сохраненные серии/секции в сокращенное название"""
-        result = abbreviated_name
-        
-        for i, section in enumerate(preserved_sections, 1):
-            marker = f"__SECTION_{i}__"
-            if marker in result:
-                result = result.replace(marker, section)
-        
-        return result
-    
     def abbreviate_word(self, word: str) -> str:
         """Сокращает одно слово на основе данных LTWA"""
-        if not word:
-            return ""
-        
         word_lower = word.lower()
         
-        # Проверяем наличие слова в LTWA
         if word_lower in self.ltwa_data:
             abbr = self.ltwa_data[word_lower]
             return abbr if abbr else word
         
-        # Проверяем частичные совпадения (для слов с дефисами)
         for ltwa_word, abbr in self.ltwa_data.items():
             if ltwa_word.endswith('-') and word_lower.startswith(ltwa_word[:-1]):
                 return abbr if abbr else word
         
-        # Базовое сокращение для слов, которых нет в LTWA
-        if len(word) > 4:
-            return word[:4].rstrip('.') + '.'
-        
         return word
-    
-    def process_journal_words(self, words: List[str]) -> List[str]:
-        """Обрабатывает слова названия журнала для сокращения"""
-        words_to_remove = {'a', 'an', 'the', 'of', 'in', 'and', '&', 'on', 'for', 'to'}
-        processed_words = []
-        
-        for word in words:
-            word_lower = word.lower()
-            
-            # Пропускаем служебные слова
-            if word_lower in words_to_remove:
-                continue
-            
-            # Сохраняем слова, которые уже являются сокращениями
-            if '.' in word and len(word) <= 5:
-                processed_words.append(word)
-                continue
-            
-            # Сохраняем однобуквенные слова (вероятно, это серии)
-            if len(word) == 1 and word.isalpha():
-                processed_words.append(word)
-                continue
-            
-            # Сокращаем слово
-            abbreviated = self.abbreviate_word(word_lower)
-            
-            # Восстанавливаем регистр
-            if word and word[0].isupper():
-                if len(abbreviated) > 1:
-                    abbreviated = abbreviated[0].upper() + abbreviated[1:]
-                else:
-                    abbreviated = abbreviated.upper()
-            
-            # Проверяем специальные аббревиатуры
-            if word_lower in self.uppercase_abbreviations:
-                abbreviated = abbreviated.upper()
-            
-            processed_words.append(abbreviated)
-        
-        return processed_words
     
     def abbreviate_journal_name(self, journal_name: str, style: str = "{J. Abbr.}") -> str:
         """Сокращает название журнала в соответствии с выбранным стилем"""
         if not journal_name:
             return ""
         
-        # Извлекаем и сохраняем серии/секции
-        clean_name, preserved_sections = self.extract_and_preserve_sections(journal_name)
+        words_to_remove = {'a', 'an', 'the', 'of', 'in', 'and', '&'}
+        words = [word for word in journal_name.split() if word.lower() not in words_to_remove]
+        words = [word.replace(':', '') for word in words]
         
-        # Разбиваем на слова
-        words = re.findall(r'\b[\w&]+\b', clean_name)
-        
-        if not words:
+        if len(words) <= 1:
             return journal_name
         
-        # Обрабатываем слова
-        processed_words = self.process_journal_words(words)
+        abbreviated_words = []
+        for i, word in enumerate(words):
+            original_first_char = word[0]
+            abbreviated = self.abbreviate_word(word.lower())
+            
+            if abbreviated and original_first_char.isupper():
+                abbreviated = abbreviated[0].upper() + abbreviated[1:]
+            
+            if i == 0 and abbreviated.lower() in self.uppercase_abbreviations:
+                abbreviated = abbreviated.upper()
+            
+            abbreviated_words.append(abbreviated)
         
-        if not processed_words:
-            return journal_name
-        
-        # Формируем результат в зависимости от стиля
         if style == "{J. Abbr.}":
-            result = " ".join(processed_words)
+            result = " ".join(abbreviated_words)
         elif style == "{J Abbr}":
-            result = " ".join(word.replace('.', '') for word in processed_words)
+            result = " ".join(abbr.replace('.', '') for abbr in abbreviated_words)
         else:
             result = journal_name
         
-        # Восстанавливаем серии/секции
-        if preserved_sections:
-            result = self.restore_sections(result, preserved_sections)
-        
-        # Убираем лишние точки
         result = re.sub(r'\.\.+', '.', result)
-        result = re.sub(r'\s+', ' ', result).strip()
-        
         return result
 
 # Инициализация системы сокращений
-journal_abbrev = EnhancedJournalAbbreviation()
+journal_abbrev = JournalAbbreviation()
 
 class BaseCitationFormatter:
     """Базовый класс для форматирования цитирования"""
@@ -792,15 +1143,12 @@ class BaseCitationFormatter:
             limit = et_al_limit if et_al_limit and et_al_limit > 0 else len(authors)
         
         for i, author in enumerate(authors[:limit]):
-            given = author.get('given', '')
-            family = author.get('family', '')
+            given = author['given']
+            family = author['family']
             
-            if not family:
-                continue
-                
             initials = given.split()[:2]
             first_initial = initials[0][0] if initials else ''
-            second_initial = initials[1][0] if len(initials) > 1 else ''
+            second_initial = initials[1][0].upper() if len(initials) > 1 else ''
             
             if author_format == "AA Smith":
                 formatted_author = f"{first_initial}{second_initial} {family}"
@@ -887,7 +1235,7 @@ class BaseCitationFormatter:
                         i += 1
                     return f"{start}–{end[i:]}"
         
-        return article_number if article_number else ""
+        return article_number
     
     def format_doi(self, doi: str) -> Tuple[str, str]:
         """Форматирует DOI и возвращает текст и URL"""
@@ -926,21 +1274,21 @@ class CustomCitationFormatter(BaseCitationFormatter):
             doi_value = None
             
             if element == "Authors":
-                value = self.format_authors(metadata.get('authors', []))
+                value = self.format_authors(metadata['authors'])
             elif element == "Title":
-                value = metadata.get('title', '')
+                value = metadata['title']
             elif element == "Journal":
-                value = self.format_journal_name(metadata.get('journal', ''))
+                value = self.format_journal_name(metadata['journal'])
             elif element == "Year":
-                value = str(metadata.get('year', '')) if metadata.get('year') else ""
+                value = str(metadata['year']) if metadata['year'] else ""
             elif element == "Volume":
-                value = metadata.get('volume', '')
+                value = metadata['volume']
             elif element == "Issue":
-                value = metadata.get('issue', '')
+                value = metadata['issue']
             elif element == "Pages":
-                value = self.format_pages(metadata.get('pages', ''), metadata.get('article_number', ''))
+                value = self.format_pages(metadata['pages'], metadata['article_number'])
             elif element == "DOI":
-                doi = metadata.get('doi', '')
+                doi = metadata['doi']
                 doi_value = doi
                 value, _ = self.format_doi(doi)
             
@@ -985,14 +1333,13 @@ class GOSTCitationFormatter(BaseCitationFormatter):
             return (error_message, True)
         
         first_author = ""
-        authors = metadata.get('authors', [])
-        if authors:
-            author = authors[0]
-            given = author.get('given', '')
-            family = author.get('family', '')
+        if metadata['authors']:
+            author = metadata['authors'][0]
+            given = author['given']
+            family = author['family']
             initials = given.split()[:2]
             first_initial = initials[0][0] if initials else ''
-            second_initial = initials[1][0] if len(initials) > 1 else ''
+            second_initial = initials[1][0].upper() if len(initials) > 1 else ''
             
             if second_initial:
                 first_author = f"{family}, {first_initial}.{second_initial}."
@@ -1000,12 +1347,12 @@ class GOSTCitationFormatter(BaseCitationFormatter):
                 first_author = f"{family}, {first_initial}."
         
         all_authors = ""
-        for i, author in enumerate(authors):
-            given = author.get('given', '')
-            family = author.get('family', '')
+        for i, author in enumerate(metadata['authors']):
+            given = author['given']
+            family = author['family']
             initials = given.split()[:2]
             first_initial = initials[0][0] if initials else ''
-            second_initial = initials[1][0] if len(initials) > 1 else ''
+            second_initial = initials[1][0].upper() if len(initials) > 1 else ''
             
             if second_initial:
                 author_str = f"{first_initial}.{second_initial}. {family}"
@@ -1013,11 +1360,11 @@ class GOSTCitationFormatter(BaseCitationFormatter):
                 author_str = f"{first_initial}. {family}"
             
             all_authors += author_str
-            if i < len(authors) - 1:
+            if i < len(metadata['authors']) - 1:
                 all_authors += ", "
         
-        pages = metadata.get('pages', '')
-        article_number = metadata.get('article_number', '')
+        pages = metadata['pages']
+        article_number = metadata['article_number']
         
         is_russian = st.session_state.current_language == 'ru'
         volume_label = "V." if is_russian else "Vol."
@@ -1025,14 +1372,13 @@ class GOSTCitationFormatter(BaseCitationFormatter):
         article_label = "Аrt." if is_russian else "Art."
         issue_label = "№" if is_russian else "No."
         
-        doi = metadata.get('doi', '')
-        doi_url = f"https://doi.org/{doi}" if doi else ""
-        journal_name = metadata.get('journal', '')
+        doi_url = f"https://doi.org/{metadata['doi']}"
+        journal_name = metadata['journal']
         
-        if metadata.get('issue'):
-            gost_ref = f"{first_author} {metadata.get('title', '')} / {all_authors} // {journal_name}. – {metadata.get('year', '')}. – {volume_label} {metadata.get('volume', '')}. – {issue_label} {metadata.get('issue', '')}."
+        if metadata['issue']:
+            gost_ref = f"{first_author} {metadata['title']} / {all_authors} // {journal_name}. – {metadata['year']}. – {volume_label} {metadata['volume']}. – {issue_label} {metadata['issue']}."
         else:
-            gost_ref = f"{first_author} {metadata.get('title', '')} / {all_authors} // {journal_name}. – {metadata.get('year', '')}. – {volume_label} {metadata.get('volume', '')}."
+            gost_ref = f"{first_author} {metadata['title']} / {all_authors} // {journal_name}. – {metadata['year']}. – {volume_label} {metadata['volume']}."
         
         if pages:
             if '-' in pages:
@@ -1049,19 +1395,15 @@ class GOSTCitationFormatter(BaseCitationFormatter):
             else:
                 gost_ref += " – [No pagination]."
         
-        if doi_url:
-            gost_ref += f" – {doi_url}"
+        gost_ref += f" – {doi_url}"
         
         if for_preview:
             return gost_ref, False
         else:
             elements = []
-            if doi_url:
-                text_before_doi = gost_ref.replace(doi_url, "")
-                elements.append((text_before_doi, False, False, "", False, None))
-                elements.append((doi_url, False, False, "", True, doi))
-            else:
-                elements.append((gost_ref, False, False, "", False, None))
+            text_before_doi = gost_ref.replace(doi_url, "")
+            elements.append((text_before_doi, False, False, "", False, None))
+            elements.append((doi_url, False, False, "", True, metadata['doi']))
             return elements, False
 
 class ACSCitationFormatter(BaseCitationFormatter):
@@ -1072,15 +1414,14 @@ class ACSCitationFormatter(BaseCitationFormatter):
             error_message = "Ошибка: Не удалось отформатировать ссылку." if st.session_state.current_language == 'ru' else "Error: Could not format the reference."
             return (error_message, True)
         
-        authors = metadata.get('authors', [])
         authors_str = ""
-        for i, author in enumerate(authors):
-            given = author.get('given', '')
-            family = author.get('family', '')
+        for i, author in enumerate(metadata['authors']):
+            given = author['given']
+            family = author['family']
             
             initials = given.split()[:2]
             first_initial = initials[0][0] if initials else ''
-            second_initial = initials[1][0] if len(initials) > 1 else ''
+            second_initial = initials[1][0].upper() if len(initials) > 1 else ''
             
             if second_initial:
                 author_str = f"{family}, {first_initial}.{second_initial}."
@@ -1089,11 +1430,11 @@ class ACSCitationFormatter(BaseCitationFormatter):
             
             authors_str += author_str
             
-            if i < len(authors) - 1:
+            if i < len(metadata['authors']) - 1:
                 authors_str += "; "
         
-        pages = metadata.get('pages', '')
-        article_number = metadata.get('article_number', '')
+        pages = metadata['pages']
+        article_number = metadata['article_number']
         
         if pages:
             if '-' in pages:
@@ -1111,8 +1452,8 @@ class ACSCitationFormatter(BaseCitationFormatter):
         else:
             pages_formatted = ""
         
-        journal_name = self.format_journal_name(metadata.get('journal', ''))
-        acs_ref = f"{authors_str} {metadata.get('title', '')}. {journal_name} {metadata.get('year', '')}, {metadata.get('volume', '')}, {pages_formatted}."
+        journal_name = self.format_journal_name(metadata['journal'])
+        acs_ref = f"{authors_str} {metadata['title']}. {journal_name} {metadata['year']}, {metadata['volume']}, {pages_formatted}."
         acs_ref = re.sub(r'\.\.+', '.', acs_ref)
         
         if for_preview:
@@ -1120,10 +1461,10 @@ class ACSCitationFormatter(BaseCitationFormatter):
         else:
             elements = []
             elements.append((authors_str, False, False, " ", False, None))
-            elements.append((metadata.get('title', ''), False, False, ". ", False, None))
+            elements.append((metadata['title'], False, False, ". ", False, None))
             elements.append((journal_name, True, False, " ", False, None))
-            elements.append((str(metadata.get('year', '')), False, True, ", ", False, None))
-            elements.append((metadata.get('volume', ''), True, False, ", ", False, None))
+            elements.append((str(metadata['year']), False, True, ", ", False, None))
+            elements.append((metadata['volume'], True, False, ", ", False, None))
             elements.append((pages_formatted, False, False, ".", False, None))
             return elements, False
 
@@ -1135,15 +1476,14 @@ class RSCCitationFormatter(BaseCitationFormatter):
             error_message = "Ошибка: Не удалось отформатировать ссылку." if st.session_state.current_language == 'ru' else "Error: Could not format the reference."
             return (error_message, True)
         
-        authors = metadata.get('authors', [])
         authors_str = ""
-        for i, author in enumerate(authors):
-            given = author.get('given', '')
-            family = author.get('family', '')
+        for i, author in enumerate(metadata['authors']):
+            given = author['given']
+            family = author['family']
             
             initials = given.split()[:2]
             first_initial = initials[0][0] if initials else ''
-            second_initial = initials[1][0] if len(initials) > 1 else ''
+            second_initial = initials[1][0].upper() if len(initials) > 1 else ''
             
             if second_initial:
                 author_str = f"{first_initial}.{second_initial}. {family}"
@@ -1152,14 +1492,14 @@ class RSCCitationFormatter(BaseCitationFormatter):
             
             authors_str += author_str
             
-            if i < len(authors) - 1:
-                if i == len(authors) - 2:
+            if i < len(metadata['authors']) - 1:
+                if i == len(metadata['authors']) - 2:
                     authors_str += " and "
                 else:
                     authors_str += ", "
         
-        pages = metadata.get('pages', '')
-        article_number = metadata.get('article_number', '')
+        pages = metadata['pages']
+        article_number = metadata['article_number']
         
         if pages:
             if '-' in pages:
@@ -1172,8 +1512,8 @@ class RSCCitationFormatter(BaseCitationFormatter):
         else:
             pages_formatted = ""
         
-        journal_name = self.format_journal_name(metadata.get('journal', ''))
-        rsc_ref = f"{authors_str}, {journal_name}, {metadata.get('year', '')}, {metadata.get('volume', '')}, {pages_formatted}."
+        journal_name = self.format_journal_name(metadata['journal'])
+        rsc_ref = f"{authors_str}, {journal_name}, {metadata['year']}, {metadata['volume']}, {pages_formatted}."
         rsc_ref = re.sub(r'\.\.+', '.', rsc_ref)
         
         if for_preview:
@@ -1182,8 +1522,8 @@ class RSCCitationFormatter(BaseCitationFormatter):
             elements = []
             elements.append((authors_str, False, False, ", ", False, None))
             elements.append((journal_name, True, False, ", ", False, None))
-            elements.append((str(metadata.get('year', '')), False, False, ", ", False, None))
-            elements.append((metadata.get('volume', ''), False, True, ", ", False, None))
+            elements.append((str(metadata['year']), False, False, ", ", False, None))
+            elements.append((metadata['volume'], False, True, ", ", False, None))
             elements.append((pages_formatted, False, False, ".", False, None))
             return elements, False
 
@@ -1195,15 +1535,14 @@ class CTACitationFormatter(BaseCitationFormatter):
             error_message = "Ошибка: Не удалось отформатировать ссылку." if st.session_state.current_language == 'ru' else "Error: Could not format the reference."
             return (error_message, True)
         
-        authors = metadata.get('authors', [])
         authors_str = ""
-        for i, author in enumerate(authors):
-            given = author.get('given', '')
-            family = author.get('family', '')
+        for i, author in enumerate(metadata['authors']):
+            given = author['given']
+            family = author['family']
             
             initials = given.split()[:2]
             first_initial = initials[0][0] if initials else ''
-            second_initial = initials[1][0] if len(initials) > 1 else ''
+            second_initial = initials[1][0].upper() if len(initials) > 1 else ''
             
             if second_initial:
                 author_str = f"{family} {first_initial}{second_initial}"
@@ -1212,38 +1551,33 @@ class CTACitationFormatter(BaseCitationFormatter):
             
             authors_str += author_str
             
-            if i < len(authors) - 1:
+            if i < len(metadata['authors']) - 1:
                 authors_str += ", "
         
-        pages = metadata.get('pages', '')
-        article_number = metadata.get('article_number', '')
+        pages = metadata['pages']
+        article_number = metadata['article_number']
         pages_formatted = self.format_pages(pages, article_number, "cta")
-        journal_name = self.format_journal_name(metadata.get('journal', ''))
-        issue_part = f"({metadata.get('issue', '')})" if metadata.get('issue') else ""
+        journal_name = self.format_journal_name(metadata['journal'])
+        issue_part = f"({metadata['issue']})" if metadata['issue'] else ""
         
-        doi = metadata.get('doi', '')
-        cta_ref = f"{authors_str}. {metadata.get('title', '')}. {journal_name}. {metadata.get('year', '')};{metadata.get('volume', '')}{issue_part}:{pages_formatted}."
-        
-        if doi:
-            cta_ref += f" doi:{doi}"
+        cta_ref = f"{authors_str}. {metadata['title']}. {journal_name}. {metadata['year']};{metadata['volume']}{issue_part}:{pages_formatted}. doi:{metadata['doi']}"
         
         if for_preview:
             return cta_ref, False
         else:
             elements = []
             elements.append((authors_str, False, False, ". ", False, None))
-            elements.append((metadata.get('title', ''), False, False, ". ", False, None))
+            elements.append((metadata['title'], False, False, ". ", False, None))
             elements.append((journal_name, True, False, ". ", False, None))
-            elements.append((str(metadata.get('year', '')), False, False, ";", False, None))
-            elements.append((metadata.get('volume', ''), False, False, "", False, None))
-            if metadata.get('issue'):
-                elements.append((f"({metadata.get('issue', '')})", False, False, ":", False, None))
+            elements.append((str(metadata['year']), False, False, ";", False, None))
+            elements.append((metadata['volume'], False, False, "", False, None))
+            if metadata['issue']:
+                elements.append((f"({metadata['issue']})", False, False, ":", False, None))
             else:
                 elements.append(("", False, False, ":", False, None))
-            elements.append((pages_formatted, False, False, ".", False, None))
-            if doi:
-                doi_text = f" doi:{doi}"
-                elements.append((doi_text, False, False, "", True, doi))
+            elements.append((pages_formatted, False, False, ". ", False, None))
+            doi_text = f"doi:{metadata['doi']}"
+            elements.append((doi_text, False, False, "", True, metadata['doi']))
             return elements, False
 
 class CitationFormatterFactory:
@@ -1495,6 +1829,12 @@ class DOIProcessor:
             logger.info(f"Found bibliographic DOI: {bibliographic_doi}")
             return bibliographic_doi
         
+        # Стратегия 3: Поиск через OpenAlex (если подключен)
+        openalex_doi = self._find_openalex_doi(reference)
+        if openalex_doi:
+            logger.info(f"Found OpenAlex DOI: {openalex_doi}")
+            return openalex_doi
+        
         logger.warning(f"No DOI found for reference: {reference[:100]}...")
         return None
     
@@ -1557,6 +1897,12 @@ class DOIProcessor:
         except Exception as e:
             logger.error(f"Bibliographic search error for '{clean_ref}': {e}")
         
+        return None
+    
+    def _find_openalex_doi(self, reference: str) -> Optional[str]:
+        """Поиск DOI через OpenAlex API"""
+        # Заглушка для будущей реализации OpenAlex
+        # OpenAlex предоставляет бесплатный API с хорошими лимитами
         return None
 
     def extract_metadata_with_cache(self, doi: str) -> Optional[Dict]:
@@ -1937,7 +2283,12 @@ class UIComponents:
         """Рендер селектора языка"""
         languages = [
             ('English', 'en'),
-            ('Русский', 'ru')
+            ('Русский', 'ru'), 
+            ('Deutsch', 'de'),
+            ('Español', 'es'),
+            ('Italiano', 'it'),
+            ('日本語', 'ja'),
+            ('中文', 'zh')
         ]
         
         current_lang = st.session_state.current_language
