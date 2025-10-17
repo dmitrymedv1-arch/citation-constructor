@@ -169,7 +169,7 @@ TRANSLATIONS = {
         'step_1_note': '(!) The punctuation boxes enable various items to be included between element configurations (simple punctuation, Vol., Issue…)',
         'step_2': '❷ Then, use the Style Presets to change certain element configurations for each reformatted reference.',
         'step_3': '❸ The Style Preview function enables users to visualize the final form of their reference style',
-        'step_4': '❹ If the final style is appropriate, select the Docx or Text option in the Data Input section and upload the corresponding information. Then, in the Data Output section, select the required options and press "Process" to initiate reformatting.',
+        'step_4': '❹ If the final style is appropriate, select the Docx or Text option in the Data Input section and upload the corresponding information (reference list). Then, in the Data Output section, select the required options and press "Process" to initiate reformatting.',
         'step_5': '❺ After processing is complete, download the reformatted references in your preferred format.',
         'step_5_note': '(!) Outputting the Docx file is recommended, as it preserves formatting (e.g., bold, italic, and hyperlinks) and includes additional stats at the end of the document.',
         'step_6': '❻ After creating your final version of the style, save it so that you can upload it again in the next session. Use the Style Management section for this purpose.',
@@ -258,7 +258,7 @@ TRANSLATIONS = {
         'step_1_note': '(!) Поля пунктуации позволяют включать различные элементы между конфигурациями (простая пунктуация, Том, Выпуск…)',
         'step_2': '❷ Затем используйте готовые стили, чтобы изменить определенные конфигурации элементов для каждой переформатированной ссылки.',
         'step_3': '❸ Функция предпросмотра стиля позволяет визуализировать окончательную форму вашего стиля ссылок',
-        'step_4': '❹ Если окончательный стиль подходит, выберите опцию Docx или Текст в разделе ввода данных и загрузите соответствующую информацию. Затем в разделе вывода данных выберите нужные опции и нажмите "Обработать" для начала переформатирования.',
+        'step_4': '❹ Если окончательный стиль подходит, выберите опцию Docx или Текст в разделе ввода данных и загрузите соответствующую информацию (список литературы). Затем в разделе вывода данных выберите нужные опции и нажмите "Обработать" для начала переформатирования.',
         'step_5': '❺ После завершения обработки загрузите переформатированные ссылки в предпочитаемом формате.',
         'step_5_note': '(!) Рекомендуется выводить файл Docx, так как он сохраняет форматирование (например, жирный шрифт, курсив и гиперссылки) и включает дополнительную статистику в конце документа.',
         'step_6': '❻ После создания окончательной версии стиля сохраните его, чтобы можно было снова загрузить в следующей сессии. Для этого используйте раздел Style Management.',
@@ -3822,6 +3822,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
