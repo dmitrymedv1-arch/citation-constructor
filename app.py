@@ -165,7 +165,7 @@ TRANSLATIONS = {
         'journal_abbr_with_dots': 'J. Abbr.',
         'journal_abbr_no_dots': 'J Abbr',
         'short_guide_title': 'A short guide for the conversion of doi-based references',
-        'step_1': '❶ Select a ready reference style (GOST, ACS(MDPI), RSC, or CTA), or create your own style by selecting the sequence, design, and punctuation of the element configurations',
+        'step_1': '❶ Select a ready reference style (ACS(MDPI), RSC, or CTA), or create your own style by selecting the sequence, design, and punctuation of the element configurations',
         'step_1_note': '(!) The punctuation boxes enable various items to be included between element configurations (simple punctuation, Vol., Issue…)',
         'step_2': '❷ Then, use the Style Presets to change certain element configurations for each reformatted reference.',
         'step_3': '❸ The Style Preview function enables users to visualize the final form of their reference style',
@@ -343,7 +343,7 @@ TRANSLATIONS = {
         'journal_abbr_with_dots': 'J. Abk.',
         'journal_abbr_no_dots': 'J Abk',
         'short_guide_title': 'Kurzanleitung zur Konvertierung von DOI-basierten Referenzen',
-        'step_1': '❶ Wählen Sie einen vorgefertigten Referenzstil (GOST, ACS(MDPI), RSC oder CTA) oder erstellen Sie Ihren eigenen Stil, indem Sie die Reihenfolge, Gestaltung und Zeichensetzung der Elementkonfigurationen auswählen',
+        'step_1': '❶ Wählen Sie einen vorgefertigten Referenzstil (ACS(MDPI), RSC oder CTA) oder erstellen Sie Ihren eigenen Stil, indem Sie die Reihenfolge, Gestaltung und Zeichensetzung der Elementkonfigurationen auswählen',
         'step_1_note': '(!) Die Zeichensetzungsfelder ermöglichen die Aufnahme verschiedener Elemente zwischen Elementkonfigurationen (einfache Zeichensetzung, Vol., Issue…)',
         'step_2': '❷ Verwenden Sie dann die Stilvorlagen, um bestimmte Elementkonfigurationen für jede neu formatierte Referenz zu ändern.',
         'step_3': '❸ Die Stilvorschau-Funktion ermöglicht es Benutzern, die endgültige Form ihres Referenzstils zu visualisieren',
@@ -432,7 +432,7 @@ TRANSLATIONS = {
         'journal_abbr_with_dots': 'J. Abrev.',
         'journal_abbr_no_dots': 'J Abrev',
         'short_guide_title': 'Una guía breve para la conversión de referencias basadas en doi',
-        'step_1': '❶ Seleccione un estilo de referencia listo (GOST, ACS(MDPI), RSC o CTA), o cree su propio estilo seleccionando la secuencia, diseño y puntuación de las configuraciones de elementos',
+        'step_1': '❶ Seleccione un estilo de referencia listo (ACS(MDPI), RSC o CTA), o cree su propio estilo seleccionando la secuencia, diseño y puntuación de las configuraciones de elementos',
         'step_1_note': '(!) Los cuadros de puntuación permiten incluir varios elementos entre configuraciones de elementos (puntuación simple, Vol., Issue…)',
         'step_2': '❷ Luego, use los Estilos Predefinidos para cambiar ciertas configuraciones de elementos para cada referencia reformateada.',
         'step_3': '❸ La función de Vista Previa del Estilo permite a los usuarios visualizar la forma final de su estilo de referencia',
@@ -521,13 +521,13 @@ TRANSLATIONS = {
         'journal_abbr_with_dots': 'Riv. Abbr.',
         'journal_abbr_no_dots': 'Riv Abbr',
         'short_guide_title': 'Una breve guida per la conversione di riferimenti basati su doi',
-        'step_1': '❶ Seleziona uno stile di riferimento pronto (GOST, ACS(MDPI), RSC o CTA), o crea il tuo stile personalizzato selezionando la sequenza, il design e la punteggiatura delle configurazioni degli elementi',
+        'step_1': '❶ Seleziona uno stile di riferimento pronto (ACS(MDPI), RSC o CTA), o crea il tuo stile personalizzato selezionando la sequenza, il design e la punteggiatura delle configurazioni degli elementi',
         'step_1_note': '(!) Le caselle di punteggiatura consentono di includere vari elementi tra le configurazioni degli elementi (punteggiatura semplice, Vol., Issue…)',
         'step_2': '❷ Quindi, utilizza gli Stili Preimpostati per modificare determinate configurazioni di elementi per ogni riferimento riformattato.',
         'step_3': '❸ La funzione Anteprima Stile consente agli utenti di visualizzare la forma finale del loro stile di riferimento',
         'step_4': '❹ Se lo stile finale è appropriato, seleziona l\'opzione Docx o Testo nella sezione Input Dati e carica le informazioni corrispondenti. Quindi, nella sezione Output Dati, seleziona le opzioni richieste e premi "Elabora" per avviare la riformattazione.',
         'step_5': '❺ Dopo il completamento dell\'elaborazione, scarica i riferimenti riformattati nel formato preferito.',
-        'step_5_note': '(!) Si consiglia di output il file Docx, in quanto conserva la formattazione (ad esempio, grassetto, corsivo e collegamenti ipertestuali) e include statistiche aggiuntive alla fine del documento.',
+        'step_5_note': '(!) Si consiglia di output il file Docx, in quanto conserva la formattazione (ad esempio, grassetto, cursivo e collegamenti ipertestuali) e include statistiche aggiuntive alla fine del documento.',
         'step_6': '❻ Dopo aver creato la versione finale dello stile, salvala in modo da poterla caricare nuovamente nella sessione successiva. Utilizza la sezione Gestione Stili per questo scopo.',
         'validation_error_no_elements': 'Si prega di configurare almeno un elemento o selezionare uno stile preimpostato!',
         'validation_error_too_many_references': 'Troppi riferimenti (massimo {} consentiti)',
@@ -610,11 +610,11 @@ TRANSLATIONS = {
         'journal_abbr_with_dots': 'J. 略称',
         'journal_abbr_no_dots': 'J 略称',
         'short_guide_title': 'DOIベースの参考文献変換の短いガイド',
-        'step_1': '❶ 既製の参考文献スタイル（GOST、ACS(MDPI)、RSC、CTA）を選択するか、要素設定の順序、デザイン、句読点を選択して独自のスタイルを作成します',
+        'step_1': '❶ 既製の参考文献スタイル（ACS(MDPI)、RSC、CTA）を選択するか、要素設定の順序、デザイン、句読点を選択して独自のスタイルを作成します',
         'step_1_note': '（！）句読点ボックスを使用すると、要素設定間にさまざまな項目を含めることができます（簡単な句読点、Vol.、Issue…）',
         'step_2': '❷ 次に、スタイルプリセットを使用して、再フォーマットされた各参考文献の特定の要素設定を変更します。',
         'step_3': '❸ スタイルプレビュー機能により、ユーザーは参考文献スタイルの最終的な形を視覚化できます',
-        'step_4': '❹ 最終的なスタイルが適切な場合は、データ入力セクションでDocxまたはテキストオプションを選択し、対応する情報をアップロードします。次に、データ出力セクションで必要なオプションを選択し、「処理」を押して再フォーマットを開始します。',
+        'step_4': '❹ 最終的なスタイルが適切な場合は、データ入力セクションでDocxまたはテキストオプションを選択し、対応する情報をアップロードします。次に、データ輸出セクションで必要なオプションを選択し、「処理」を押して再フォーマットを開始します。',
         'step_5': '❺ 処理が完了した後、希望の形式で再フォーマットされた参考文献をダウンロードします。',
         'step_5_note': '（！）Docxファイルの出力をお勧めします。これは、フォーマット（太字、斜体、ハイパーリンクなど）を保持し、文書の最後に追加の統計情報を含めるためです。',
         'step_6': '❻ スタイルの最終バージョンを作成した後、次のセッションで再度アップロードできるように保存します。この目的にはスタイル管理セクションを使用してください。',
@@ -699,7 +699,7 @@ TRANSLATIONS = {
         'journal_abbr_with_dots': '期刊 缩写',
         'journal_abbr_no_dots': '期刊缩写',
         'short_guide_title': '基于DOI的参考文献转换简短指南',
-        'step_1': '❶ 选择现成的参考文献样式（GOST、ACS(MDPI)、RSC或CTA），或通过选择元素配置的顺序、设计和标点创建自己的样式',
+        'step_1': '❶ 选择现成的参考文献样式（ACS(MDPI)、RSC或CTA），或通过选择元素配置的顺序、设计和标点创建自己的样式',
         'step_1_note': '（！）标点框允许在元素配置之间包含各种项目（简单标点、卷、期…）',
         'step_2': '❷ 然后，使用样式预设更改每个重新格式化的参考文献的特定元素配置。',
         'step_3': '❸ 样式预览功能使用户能够可视化其参考文献样式的最终形式',
@@ -1048,21 +1048,25 @@ class JournalAbbreviation:
         self.ltwa_data = {}
         self.load_ltwa_data()
         self.uppercase_abbreviations = {'acs', 'ecs', 'rsc', 'ieee', 'iet', 'acm', 'aims', 'bmc', 'bmj', 'npj'}
+        self.special_endings = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 
+                               'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+                               'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'}
     
     def load_ltwa_data(self):
         """Загружает данные сокращений из файла ltwa.csv"""
         try:
             csv_path = Config.LTWA_CSV_PATH
-            with open(csv_path, 'r', encoding='utf-8') as f:
-                reader = csv.reader(f, delimiter='\t')
-                next(reader)
-                for row in reader:
-                    if len(row) >= 2:
-                        word = row[0].strip()
-                        abbreviation = row[1].strip() if row[1].strip() else None
-                        self.ltwa_data[word] = abbreviation
-        except FileNotFoundError:
-            logger.warning("Файл ltwa.csv не найден")
+            if os.path.exists(csv_path):
+                with open(csv_path, 'r', encoding='utf-8') as f:
+                    reader = csv.reader(f, delimiter='\t')
+                    next(reader)
+                    for row in reader:
+                        if len(row) >= 2:
+                            word = row[0].strip()
+                            abbreviation = row[1].strip() if row[1].strip() else None
+                            self.ltwa_data[word] = abbreviation
+            else:
+                logger.warning(f"Файл {csv_path} не найден, используется стандартное сокращение")
         except Exception as e:
             logger.error(f"Ошибка загрузки ltwa.csv: {e}")
     
@@ -1080,37 +1084,73 @@ class JournalAbbreviation:
         
         return word
     
+    def extract_special_endings(self, journal_name: str) -> Tuple[str, str]:
+        """Извлекает специальные окончания (A, B, C и т.д.) из названия журнала"""
+        # Паттерны для поиска специальных окончаний
+        patterns = [
+            r'\s+([A-Z])\s*$',  # Одиночные буквы в конце
+            r'\s+([IVX]+)\s*$',  # Римские цифры
+            r'\s+Part\s+([A-Z0-9]+)\s*$',  # Part A, Part 1 и т.д.
+            r'\s+([A-Z]):\s+[A-Z]',  # Буква с двоеточием: A: General, B: Environmental
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, journal_name)
+            if match:
+                ending = match.group(1)
+                # Проверяем, является ли окончание специальным
+                if ending in self.special_endings or re.match(r'^[A-Z]$', ending):
+                    base_name = journal_name[:match.start()].strip()
+                    return base_name, ending
+        
+        return journal_name, ""
+    
     def abbreviate_journal_name(self, journal_name: str, style: str = "{J. Abbr.}") -> str:
         """Сокращает название журнала в соответствии с выбранным стилем"""
         if not journal_name:
             return ""
         
-        words_to_remove = {'a', 'an', 'the', 'of', 'in', 'and', '&'}
-        words = [word for word in journal_name.split() if word.lower() not in words_to_remove]
+        # Извлекаем базовое название и специальное окончание
+        base_name, special_ending = self.extract_special_endings(journal_name)
+        
+        words_to_remove = {'a', 'an', 'the', 'of', 'in', 'and', '&', 'for', 'on', 'with', 'by'}
+        words = [word for word in base_name.split() if word.lower() not in words_to_remove]
         words = [word.replace(':', '') for word in words]
         
         if len(words) <= 1:
-            return journal_name
-        
-        abbreviated_words = []
-        for i, word in enumerate(words):
-            original_first_char = word[0]
-            abbreviated = self.abbreviate_word(word.lower())
-            
-            if abbreviated and original_first_char.isupper():
-                abbreviated = abbreviated[0].upper() + abbreviated[1:]
-            
-            if i == 0 and abbreviated.lower() in self.uppercase_abbreviations:
-                abbreviated = abbreviated.upper()
-            
-            abbreviated_words.append(abbreviated)
-        
-        if style == "{J. Abbr.}":
-            result = " ".join(abbreviated_words)
-        elif style == "{J Abbr}":
-            result = " ".join(abbr.replace('.', '') for abbr in abbreviated_words)
-        else:
             result = journal_name
+        else:
+            abbreviated_words = []
+            for i, word in enumerate(words):
+                original_first_char = word[0]
+                abbreviated = self.abbreviate_word(word.lower())
+                
+                if abbreviated and original_first_char.isupper():
+                    abbreviated = abbreviated[0].upper() + abbreviated[1:]
+                
+                if i == 0 and abbreviated.lower() in self.uppercase_abbreviations:
+                    abbreviated = abbreviated.upper()
+                
+                abbreviated_words.append(abbreviated)
+            
+            if style == "{J. Abbr.}":
+                result = " ".join(abbreviated_words)
+            elif style == "{J Abbr}":
+                result = " ".join(abbr.replace('.', '') for abbr in abbreviated_words)
+            else:
+                result = base_name
+        
+        # Добавляем специальное окончание обратно
+        if special_ending:
+            if ':' in journal_name and special_ending + ':' in journal_name:
+                # Для случаев типа "Applied Catalysis A: General"
+                result += f" {special_ending}:"
+                # Добавляем остаток после двоеточия
+                after_colon = journal_name.split(special_ending + ':', 1)[1].strip()
+                if after_colon:
+                    result += f" {after_colon}"
+            else:
+                result += f" {special_ending}"
         
         result = re.sub(r'\.\.+', '.', result)
         return result
@@ -1373,7 +1413,7 @@ class GOSTCitationFormatter(BaseCitationFormatter):
         issue_label = "№" if is_russian else "No."
         
         doi_url = f"https://doi.org/{metadata['doi']}"
-        journal_name = metadata['journal']
+        journal_name = self.format_journal_name(metadata['journal'])
         
         if metadata['issue']:
             gost_ref = f"{first_author} {metadata['title']} / {all_authors} // {journal_name}. – {metadata['year']}. – {volume_label} {metadata['volume']}. – {issue_label} {metadata['issue']}."
@@ -2085,6 +2125,8 @@ class ReferenceProcessor:
         
         # Настройка прогресса
         self.progress_manager.start_processing(len(valid_dois))
+        
+        # Создаем прогресс-бар, который всегда будет виден
         progress_bar = progress_container.progress(0)
         status_display = status_container.empty()
         
@@ -2170,9 +2212,10 @@ class ReferenceProcessor:
         progress_ratio = completed / total if total > 0 else 0
         progress_color = self.progress_manager.get_progress_color(progress_ratio)
         
+        # Обновляем прогресс-бар
         progress_bar.progress(progress_ratio)
         
-        # Обновление стиля прогресс-бара
+        # Обновление стиля прогресс-бара с цветом
         progress_bar.markdown(f"""
             <style>
                 .stProgress > div > div > div > div {{
@@ -2181,6 +2224,7 @@ class ReferenceProcessor:
             </style>
         """, unsafe_allow_html=True)
         
+        # Обновляем текст статуса
         status_text = f"Processed: {completed}/{total} | Errors: {errors}"
         if progress_info['time_remaining']:
             mins_remaining = int(progress_info['time_remaining'] / 60)
@@ -3261,6 +3305,7 @@ class CitationStyleApp:
         references = [ref.strip() for ref in references_input.split('\n') if ref.strip()]
         st.write(f"**{get_text('found_references_text').format(len(references))}**")
         
+        # Создаем контейнеры для прогресса
         progress_container = st.empty()
         status_container = st.empty()
         
@@ -3283,6 +3328,7 @@ class CitationStyleApp:
             st.error(get_text('upload_file'))
             return
         
+        # Создаем контейнеры для прогресса
         progress_container = st.empty()
         status_container = st.empty()
         
