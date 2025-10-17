@@ -1652,7 +1652,7 @@ class DocumentGenerator:
                          style_config: Dict[str, Any],
                          duplicates_info: Dict[int, int] = None) -> io.BytesIO:
         output_doc = Document()
-        output_doc.add_paragraph('Citation Style Construction / © IHTE, https://ihte.ru/ / developed by daM©')
+        output_doc.add_paragraph('Citation Style Construction / © IHTE, https://ihte.ru/ © CTA, https://chimicatechnoacta.ruF / developed by daM©')
         output_doc.add_paragraph('See short stats after the References section')
         output_doc.add_heading('References', level=1)
         
@@ -3692,3 +3692,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
