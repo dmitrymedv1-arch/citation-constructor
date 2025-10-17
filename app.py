@@ -136,7 +136,6 @@ TRANSLATIONS = {
         'found_references_text': 'Found {} references in text.',
         'statistics': 'Statistics: {} DOI found, {} not found.',
         'language': 'Language:',
-        'gost_style': 'Apply GOST Style',
         'export_style': '📤 Export Style',
         'import_style': '📥 Import Style',
         'export_file_name': 'File name:',
@@ -155,7 +154,6 @@ TRANSLATIONS = {
         'retrying_failed': 'Retrying failed DOI requests...',
         'bibliographic_search': 'Searching by bibliographic data...',
         'style_presets': 'Style Presets',
-        'gost_button': 'GOST',
         'acs_button': 'ACS (MDPI)',
         'rsc_button': 'RSC',
         'cta_button': 'CTA',
@@ -314,7 +312,6 @@ TRANSLATIONS = {
         'found_references_text': '{} Referenzen im Text gefunden.',
         'statistics': 'Statistik: {} DOI gefunden, {} nicht gefunden.',
         'language': 'Sprache:',
-        'gost_style': 'GOST-Stil anwenden',
         'export_style': '📤 Stil exportieren',
         'import_style': '📥 Stil importieren',
         'export_file_name': 'Dateiname:',
@@ -333,7 +330,6 @@ TRANSLATIONS = {
         'retrying_failed': 'Wiederhole fehlgeschlagene DOI-Anfragen...',
         'bibliographic_search': 'Suche nach bibliografischen Daten...',
         'style_presets': 'Stilvorlagen',
-        'gost_button': 'GOST',
         'acs_button': 'ACS (MDPI)',
         'rsc_button': 'RSC',
         'cta_button': 'CTA',
@@ -403,7 +399,6 @@ TRANSLATIONS = {
         'found_references_text': 'Se encontraron {} referencias en el texto.',
         'statistics': 'Estadísticas: {} DOI encontrados, {} no encontrados.',
         'language': 'Idioma:',
-        'gost_style': 'Aplicar Estilo GOST',
         'export_style': '📤 Exportar Estilo',
         'import_style': '📥 Importar Estilo',
         'export_file_name': 'Nombre del archivo:',
@@ -422,7 +417,6 @@ TRANSLATIONS = {
         'retrying_failed': 'Reintentando solicitudes DOI fallidas...',
         'bibliographic_search': 'Buscando por datos bibliográficos...',
         'style_presets': 'Estilos Predefinidos',
-        'gost_button': 'GOST',
         'acs_button': 'ACS (MDPI)',
         'rsc_button': 'RSC',
         'cta_button': 'CTA',
@@ -492,7 +486,6 @@ TRANSLATIONS = {
         'found_references_text': 'Trovati {} riferimenti nel testo.',
         'statistics': 'Statistiche: {} DOI trovati, {} non trovati.',
         'language': 'Lingua:',
-        'gost_style': 'Applica Stile GOST',
         'export_style': '📤 Esporta Stile',
         'import_style': '📥 Importa Stile',
         'export_file_name': 'Nome file:',
@@ -511,7 +504,6 @@ TRANSLATIONS = {
         'retrying_failed': 'Riprova richieste DOI fallite...',
         'bibliographic_search': 'Ricerca per dati bibliografici...',
         'style_presets': 'Stili Preimpostati',
-        'gost_button': 'GOST',
         'acs_button': 'ACS (MDPI)',
         'rsc_button': 'RSC',
         'cta_button': 'CTA',
@@ -581,7 +573,6 @@ TRANSLATIONS = {
         'found_references_text': 'テキスト内で{}件の参考文献が見つかりました。',
         'statistics': '統計: {}件のDOIが見つかりました、{}件は見つかりませんでした。',
         'language': '言語:',
-        'gost_style': 'GOSTスタイルを適用',
         'export_style': '📤 スタイルをエクスポート',
         'import_style': '📥 スタイルをインポート',
         'export_file_name': 'ファイル名:',
@@ -600,7 +591,6 @@ TRANSLATIONS = {
         'retrying_failed': '失敗したDOIリクエストを再試行中...',
         'bibliographic_search': '書誌データで検索中...',
         'style_presets': 'スタイルプリセット',
-        'gost_button': 'GOST',
         'acs_button': 'ACS (MDPI)',
         'rsc_button': 'RSC',
         'cta_button': 'CTA',
@@ -670,7 +660,6 @@ TRANSLATIONS = {
         'found_references_text': '在文本中找到 {} 条参考文献。',
         'statistics': '统计: 找到 {} 条DOI，{} 条未找到。',
         'language': '语言:',
-        'gost_style': '应用GOST样式',
         'export_style': '📤 导出样式',
         'import_style': '📥 导入样式',
         'export_file_name': '文件名:',
@@ -689,7 +678,6 @@ TRANSLATIONS = {
         'retrying_failed': '重试失败的DOI请求...',
         'bibliographic_search': '通过书目数据搜索...',
         'style_presets': '样式预设',
-        'gost_button': 'GOST',
         'acs_button': 'ACS (MDPI)',
         'rsc_button': 'RSC',
         'cta_button': 'CTA',
@@ -3680,6 +3668,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
