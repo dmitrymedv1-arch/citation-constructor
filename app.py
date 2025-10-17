@@ -1019,7 +1019,9 @@ def init_session_state():
         'cta_style': False,
         'last_style_update': 0,
         'cache_initialized': False,
-        'user_prefs_loaded': False
+        'user_prefs_loaded': False,
+        # Добавляем флаг для отслеживания обработки файлов
+        'file_processing_complete': False
     }
     
     for key, default in defaults.items():
@@ -3121,10 +3123,19 @@ class CitationStyleApp:
     def run(self):
         """Запуск приложения"""
         st.set_page_config(layout="wide")
-        
+    
         # Загрузка пользовательских предпочтений
         self.ui.load_user_preferences()
+    
+        # Обработка применения импортированного стиля (если есть)
+        if (st.session_state.get('imported_style') and 
+            st.session_state.get('apply_imported_style') and 
+            not st.session_state.get('style_applied')):
         
+            self._apply_imported_style(st.session_state.imported_style)
+            st.session_state.apply_imported_style = False
+            st.session_state.imported_style = None
+    
         # Применение стилей темы
         self.ui.apply_theme_styles()
         
@@ -3504,16 +3515,21 @@ class CitationStyleApp:
             key="style_importer"
         )
         
-        if imported_file is not None and not st.session_state.style_applied:
-            imported_style = self._import_style(imported_file)
-            if imported_style:
-                st.session_state.imported_style = imported_style
-                st.session_state.apply_imported_style = True
-                st.success(get_text('import_success'))
-                st.rerun()
-        
-        # Управление кэшем
-        self._render_cache_management()
+        # Обработка импортированного файла
+        if imported_file is not None:
+            # Проверяем, что файл еще не обрабатывался в этой сессии
+            if (f"last_imported_file_{imported_file.name}" not in st.session_state or 
+                st.session_state[f"last_imported_file_{imported_file.name}"] != imported_file.getvalue()):
+            
+                imported_style = self._import_style(imported_file)
+                if imported_style:
+                    # Сохраняем хеш файла для предотвращения повторной обработки
+                    st.session_state[f"last_imported_file_{imported_file.name}"] = imported_file.getvalue()
+                
+                    # Применяем стиль сразу
+                    self._apply_imported_style(imported_style)
+                    st.success(get_text('import_success'))
+                    st.rerun()
     
     def _render_cache_management(self):
         """Рендер управления кэшем"""
@@ -3548,17 +3564,69 @@ class CitationStyleApp:
     def _import_style(self, uploaded_file):
         """Импорт стиля"""
         try:
+            # Сохраняем позицию файла для возможности повторного чтения
+            uploaded_file.seek(0)
             content = uploaded_file.read().decode('utf-8')
             import_data = json.loads(content)
+        
+            # Поддержка разных форматов файлов
+            if 'style_config' in import_data:
+                return import_data
+            elif 'version' in import_data:
+                return import_data
+            else:
+                # Предполагаем, что это прямой style_config
+                return {'style_config': import_data}
             
-            if 'style_config' not in import_data:
-                st.error(get_text('import_error'))
-                return None
-                
-            return import_data['style_config']
         except Exception as e:
             st.error(f"{get_text('import_error')}: {str(e)}")
             return None
+
+    def _apply_imported_style(self, imported_style):
+        """Применение импортированного стиля к состоянию сессии"""
+        if not imported_style:
+            return
+    
+        style_config = imported_style.get('style_config', imported_style)
+    
+        # Общие настройки
+        st.session_state.num = style_config.get('numbering_style', "No numbering")
+        st.session_state.auth = style_config.get('author_format', "AA Smith")
+        st.session_state.sep = style_config.get('author_separator', ", ")
+        st.session_state.etal = style_config.get('et_al_limit', 0) or 0
+        st.session_state.use_and_checkbox = style_config.get('use_and_bool', False)
+        st.session_state.use_ampersand_checkbox = style_config.get('use_ampersand_bool', False)
+        st.session_state.doi = style_config.get('doi_format', "10.10/xxx")
+        st.session_state.doilink = style_config.get('doi_hyperlink', True)
+        st.session_state.page = style_config.get('page_format', "122–128")
+        st.session_state.punct = style_config.get('final_punctuation', "")
+        st.session_state.journal_style = style_config.get('journal_style', '{Full Journal Name}')
+    
+        # Сброс пресетов стилей
+        st.session_state.gost_style = style_config.get('gost_style', False)
+        st.session_state.acs_style = style_config.get('acs_style', False)
+        st.session_state.rsc_style = style_config.get('rsc_style', False)
+        st.session_state.cta_style = style_config.get('cta_style', False)
+    
+        # Очистка элементов
+        for i in range(8):
+            st.session_state[f"el{i}"] = ""
+            st.session_state[f"it{i}"] = False
+            st.session_state[f"bd{i}"] = False
+            st.session_state[f"pr{i}"] = False
+            st.session_state[f"sp{i}"] = ". "
+    
+        # Применение элементов из импортированного стиля
+        elements = style_config.get('elements', [])
+        for i, (element, config) in enumerate(elements):
+            if i < 8:  # Ограничиваем 8 элементами
+                st.session_state[f"el{i}"] = element
+                st.session_state[f"it{i}"] = config.get('italic', False)
+                st.session_state[f"bd{i}"] = config.get('bold', False)
+                st.session_state[f"pr{i}"] = config.get('parentheses', False)
+                st.session_state[f"sp{i}"] = config.get('separator', ". ")
+    
+        st.session_state.style_applied = True
 
 # Вспомогательные функции
 def clean_text(text):
@@ -3697,8 +3765,9 @@ def import_style(uploaded_file):
     return app._import_style(uploaded_file)
 
 def apply_imported_style(imported_style):
-    st.session_state.num = imported_style.get('numbering_style', "No numbering")
-    st.session_state.auth = imported_style.get('author_format', "AA Smith")
+    """Функция для применения импортированного стиля (для обратной совместимости)"""
+    app = CitationStyleApp()
+    app._apply_imported_style(imported_style)
     st.session_state.sep = imported_style.get('author_separator', ", ")
     st.session_state.etal = imported_style.get('et_al_limit', 0) or 0
     st.session_state.use_and_checkbox = imported_style.get('use_and_bool', False)
@@ -3738,3 +3807,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
