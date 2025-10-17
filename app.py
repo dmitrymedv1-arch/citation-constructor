@@ -426,7 +426,7 @@ TRANSLATIONS = {
         'acs_button': 'ACS (MDPI)',
         'rsc_button': 'RSC',
         'cta_button': 'CTA',
-        'style_preset_tooltip': 'Aquí hay algunos estilos mantenidos por editoriales individuales. Para editoriales importantes (Elsevier, Springer Nature, Wiley), el estilo varía de revista en revista. Para crear (o reformatear) referencias para una revista específica, use el Constructor de Estilos de Citas.',
+        'style_preset_tooltip': 'Aquí hay algunos estilos mantenidos por editoriales individuales. Para editoriales importantes (Elsevier, Springer Nature, Wiley), el estilo varía de revista en revista. Para crear (or reformatear) referencias para una revista específica, use el Constructor de Estilos de Citas.',
         'journal_style': 'Estilo de revista:',
         'full_journal_name': 'Nombre Completo de la Revista',
         'journal_abbr_with_dots': 'J. Abrev.',
@@ -1042,7 +1042,7 @@ def get_text(key: str) -> str:
     """Получение перевода по ключу"""
     return TRANSLATIONS[st.session_state.current_language].get(key, key)
 
-# Базовые классы форматирования (остаются без изменений)
+# Базовые классы форматирования
 class JournalAbbreviation:
     def __init__(self):
         self.ltwa_data = {}
@@ -2467,10 +2467,14 @@ class UIComponents:
         with col_info:
             st.markdown(f"<span title='{get_text('style_preset_tooltip')}'>ℹ️</span>", unsafe_allow_html=True)
         
+        # Создаем контейнер для кнопок стилей
         if st.session_state.mobile_view:
             # Мобильный вид - вертикальное расположение
-            if st.button(get_text('gost_button'), use_container_width=True, key="gost_button"):
-                self._apply_gost_style()
+            if st.session_state.current_language == 'ru':
+                # Для русского языка показываем кнопку ГОСТ
+                if st.button(get_text('gost_button'), use_container_width=True, key="gost_button"):
+                    self._apply_gost_style()
+            # Для всех языков показываем остальные стили
             if st.button(get_text('acs_button'), use_container_width=True, key="acs_button"):
                 self._apply_acs_style()
             if st.button(get_text('rsc_button'), use_container_width=True, key="rsc_button"):
@@ -2479,23 +2483,40 @@ class UIComponents:
                 self._apply_cta_style()
         else:
             # Десктоп вид - горизонтальное расположение
-            col_gost, col_acs, col_rsc, col_cta = st.columns(4)
-            
-            with col_gost:
-                if st.button(get_text('gost_button'), use_container_width=True, key="gost_button"):
-                    self._apply_gost_style()
-            
-            with col_acs:
-                if st.button(get_text('acs_button'), use_container_width=True, key="acs_button"):
-                    self._apply_acs_style()
-            
-            with col_rsc:
-                if st.button(get_text('rsc_button'), use_container_width=True, key="rsc_button"):
-                    self._apply_rsc_style()
-            
-            with col_cta:
-                if st.button(get_text('cta_button'), use_container_width=True, key="cta_button"):
-                    self._apply_cta_style()
+            if st.session_state.current_language == 'ru':
+                # Для русского языка показываем все 4 кнопки
+                col_gost, col_acs, col_rsc, col_cta = st.columns(4)
+                
+                with col_gost:
+                    if st.button(get_text('gost_button'), use_container_width=True, key="gost_button"):
+                        self._apply_gost_style()
+                
+                with col_acs:
+                    if st.button(get_text('acs_button'), use_container_width=True, key="acs_button"):
+                        self._apply_acs_style()
+                
+                with col_rsc:
+                    if st.button(get_text('rsc_button'), use_container_width=True, key="rsc_button"):
+                        self._apply_rsc_style()
+                
+                with col_cta:
+                    if st.button(get_text('cta_button'), use_container_width=True, key="cta_button"):
+                        self._apply_cta_style()
+            else:
+                # Для других языков показываем только 3 кнопки (без ГОСТ)
+                col_acs, col_rsc, col_cta = st.columns(3)
+                
+                with col_acs:
+                    if st.button(get_text('acs_button'), use_container_width=True, key="acs_button"):
+                        self._apply_acs_style()
+                
+                with col_rsc:
+                    if st.button(get_text('rsc_button'), use_container_width=True, key="rsc_button"):
+                        self._apply_rsc_style()
+                
+                with col_cta:
+                    if st.button(get_text('cta_button'), use_container_width=True, key="cta_button"):
+                        self._apply_cta_style()
     
     def _apply_gost_style(self):
         """Применение стиля ГОСТ"""
@@ -3493,7 +3514,7 @@ class CitationStyleApp:
             st.error(f"{get_text('import_error')}: {str(e)}")
             return None
 
-# Вспомогательные функции (оставлены для совместимости)
+# Вспомогательные функции
 def clean_text(text):
     return DOIProcessor()._clean_text(text)
 
