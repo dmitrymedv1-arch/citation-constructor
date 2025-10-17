@@ -182,7 +182,9 @@ TRANSLATIONS = {
         'light_theme': 'Light',
         'dark_theme': 'Dark',
         'mobile_view': 'Mobile View',
-        'desktop_view': 'Desktop View'
+        'desktop_view': 'Desktop View',
+        'clear_button': '🗑️ Clear',
+        'back_button': '↩️ Back'
     },
     'ru': {
         'header': '🎨 Конструктор стилей цитирования',
@@ -271,7 +273,9 @@ TRANSLATIONS = {
         'light_theme': 'Светлая',
         'dark_theme': 'Тёмная',
         'mobile_view': 'Мобильный вид',
-        'desktop_view': 'Десктопный вид'
+        'desktop_view': 'Десктопный вид',
+        'clear_button': '🗑️ Очистить',
+        'back_button': '↩️ Назад'
     },
     'de': {
         'header': '🎨 Zitationsstil-Konstruktor',
@@ -360,7 +364,9 @@ TRANSLATIONS = {
         'light_theme': 'Hell',
         'dark_theme': 'Dunkel',
         'mobile_view': 'Mobile Ansicht',
-        'desktop_view': 'Desktop Ansicht'
+        'desktop_view': 'Desktop Ansicht',
+        'clear_button': '🗑️ Löschen',
+        'back_button': '↩️ Zurück'
     },
     'es': {
         'header': '🎨 Constructor de Estilos de Citas',
@@ -449,7 +455,9 @@ TRANSLATIONS = {
         'light_theme': 'Claro',
         'dark_theme': 'Oscuro',
         'mobile_view': 'Vista Móvil',
-        'desktop_view': 'Vista Escritorio'
+        'desktop_view': 'Vista Escritorio',
+        'clear_button': '🗑️ Limpiar',
+        'back_button': '↩️ Atrás'
     },
     'it': {
         'header': '🎨 Costruttore di Stili di Citazione',
@@ -538,7 +546,9 @@ TRANSLATIONS = {
         'light_theme': 'Chiaro',
         'dark_theme': 'Scuro',
         'mobile_view': 'Vista Mobile',
-        'desktop_view': 'Vista Desktop'
+        'desktop_view': 'Vista Desktop',
+        'clear_button': '🗑️ Cancella',
+        'back_button': '↩️ Indietro'
     },
     'ja': {
         'header': '🎨 引用スタイル構築ツール',
@@ -627,7 +637,9 @@ TRANSLATIONS = {
         'light_theme': 'ライト',
         'dark_theme': 'ダーク',
         'mobile_view': 'モバイル表示',
-        'desktop_view': 'デスクトップ表示'
+        'desktop_view': 'デスクトップ表示',
+        'clear_button': '🗑️ クリア',
+        'back_button': '↩️ 戻る'
     },
     'zh': {
         'header': '🎨 引文样式构建器',
@@ -716,7 +728,9 @@ TRANSLATIONS = {
         'light_theme': '浅色',
         'dark_theme': '深色',
         'mobile_view': '移动视图',
-        'desktop_view': '桌面视图'
+        'desktop_view': '桌面视图',
+        'clear_button': '🗑️ 清除',
+        'back_button': '↩️ 返回'
     }
 }
 
@@ -1024,6 +1038,8 @@ def init_session_state():
         'style_import_processed': False,  # Флаг для отслеживания обработки импорта
         'last_imported_file_hash': None,  # Хеш последнего импортированного файла
         'style_management_initialized': False,  # Флаг инициализации управления стилями
+        'previous_states': [],  # Стек предыдущих состояний для кнопки Back
+        'max_undo_steps': 10,  # Максимальное количество шагов отмены
     }
     
     for key, default in defaults.items():
@@ -1480,15 +1496,14 @@ class ACSCitationFormatter(BaseCitationFormatter):
         pages = metadata['pages']
         article_number = metadata['article_number']
         
+        # ИЗМЕНЕНИЕ 1: Используем полный формат страниц вместо сокращенного
         if pages:
             if '-' in pages:
                 start_page, end_page = pages.split('-')
                 start_page = start_page.strip()
                 end_page = end_page.strip()
-                if len(start_page) == len(end_page) and start_page[:-1] == end_page[:-1]:
-                    pages_formatted = f"{start_page}−{end_page[-1]}"
-                else:
-                    pages_formatted = f"{start_page}−{end_page}"
+                # Убираем сокращение и используем полный формат
+                pages_formatted = f"{start_page}–{end_page}"
             else:
                 pages_formatted = pages
         elif article_number:
@@ -1497,7 +1512,12 @@ class ACSCitationFormatter(BaseCitationFormatter):
             pages_formatted = ""
         
         journal_name = self.format_journal_name(metadata['journal'])
-        acs_ref = f"{authors_str} {metadata['title']}. {journal_name} {metadata['year']}, {metadata['volume']}, {pages_formatted}."
+        
+        # Форматируем DOI как гиперссылку
+        doi_url = f"https://dx.doi.org/{metadata['doi']}"
+        
+        # ИЗМЕНЕНИЕ 2: Добавляем DOI после страниц через ". "
+        acs_ref = f"{authors_str} {metadata['title']}. {journal_name} {metadata['year']}, {metadata['volume']}, {pages_formatted}. {doi_url}"
         acs_ref = re.sub(r'\.\.+', '.', acs_ref)
         
         if for_preview:
@@ -1509,7 +1529,9 @@ class ACSCitationFormatter(BaseCitationFormatter):
             elements.append((journal_name, True, False, " ", False, None))
             elements.append((str(metadata['year']), False, True, ", ", False, None))
             elements.append((metadata['volume'], True, False, ", ", False, None))
-            elements.append((pages_formatted, False, False, ".", False, None))
+            elements.append((pages_formatted, False, False, ". ", False, None))
+            # ИЗМЕНЕНИЕ 3: Добавляем DOI как отдельный элемент с гиперссылкой
+            elements.append((doi_url, False, False, "", True, metadata['doi']))
             return elements, False
 
 class RSCCitationFormatter(BaseCitationFormatter):
@@ -2313,7 +2335,7 @@ class UIComponents:
     
     def render_header(self):
         """Рендер заголовка и контролов"""
-        col_logo, col_lang, col_theme, col_view = st.columns([2, 2, 2, 1])
+        col_logo, col_lang, col_theme, col_view, col_actions = st.columns([2, 2, 2, 1, 2])
         
         with col_logo:
             st.title(get_text('header'))
@@ -2326,6 +2348,9 @@ class UIComponents:
         
         with col_view:
             self._render_view_selector()
+        
+        with col_actions:
+            self._render_action_buttons()
     
     def _render_language_selector(self):
         """Рендер селектора языка"""
@@ -2351,6 +2376,7 @@ class UIComponents:
         )
         
         if selected_language[1] != st.session_state.current_language:
+            self._save_current_state()
             st.session_state.current_language = selected_language[1]
             self._save_user_preferences()
             st.rerun()
@@ -2372,6 +2398,7 @@ class UIComponents:
         )
         
         if selected_theme[1] != st.session_state.current_theme:
+            self._save_current_state()
             st.session_state.current_theme = selected_theme[1]
             self._save_user_preferences()
             st.rerun()
@@ -2382,9 +2409,114 @@ class UIComponents:
         view_label = get_text('mobile_view') if mobile_view else get_text('desktop_view')
         
         if st.button(view_label, key="view_selector", use_container_width=True):
+            self._save_current_state()
             st.session_state.mobile_view = not st.session_state.mobile_view
             self._save_user_preferences()
             st.rerun()
+    
+    def _render_action_buttons(self):
+        """Рендер кнопок действий"""
+        col_clear, col_back = st.columns(2)
+        
+        with col_clear:
+            if st.button(get_text('clear_button'), use_container_width=True, key="clear_button"):
+                self._clear_all_settings()
+        
+        with col_back:
+            if st.button(get_text('back_button'), use_container_width=True, key="back_button"):
+                self._restore_previous_state()
+    
+    def _save_current_state(self):
+        """Сохранение текущего состояния для кнопки Back"""
+        if 'previous_states' not in st.session_state:
+            st.session_state.previous_states = []
+        
+        # Сохраняем только основные настройки для экономии памяти
+        current_state = {
+            'current_language': st.session_state.current_language,
+            'current_theme': st.session_state.current_theme,
+            'mobile_view': st.session_state.mobile_view,
+            'num': st.session_state.num,
+            'auth': st.session_state.auth,
+            'sep': st.session_state.sep,
+            'etal': st.session_state.etal,
+            'doi': st.session_state.doi,
+            'doilink': st.session_state.doilink,
+            'page': st.session_state.page,
+            'punct': st.session_state.punct,
+            'journal_style': st.session_state.journal_style,
+            'use_and_checkbox': st.session_state.use_and_checkbox,
+            'use_ampersand_checkbox': st.session_state.use_ampersand_checkbox,
+            'gost_style': st.session_state.gost_style,
+            'acs_style': st.session_state.acs_style,
+            'rsc_style': st.session_state.rsc_style,
+            'cta_style': st.session_state.cta_style,
+            'timestamp': time.time()
+        }
+        
+        # Сохраняем элементы конфигурации
+        for i in range(8):
+            for prop in ['el', 'it', 'bd', 'pr', 'sp']:
+                key = f"{prop}{i}"
+                current_state[key] = st.session_state[key]
+        
+        # Добавляем в стек и ограничиваем размер
+        st.session_state.previous_states.append(current_state)
+        if len(st.session_state.previous_states) > st.session_state.max_undo_steps:
+            st.session_state.previous_states.pop(0)
+    
+    def _clear_all_settings(self):
+        """Очистка всех настроек"""
+        self._save_current_state()
+        
+        # Сброс основных настроек
+        st.session_state.num = "No numbering"
+        st.session_state.auth = "AA Smith"
+        st.session_state.sep = ", "
+        st.session_state.etal = 0
+        st.session_state.doi = "10.10/xxx"
+        st.session_state.doilink = True
+        st.session_state.page = "122–128"
+        st.session_state.punct = ""
+        st.session_state.journal_style = '{Full Journal Name}'
+        st.session_state.use_and_checkbox = False
+        st.session_state.use_ampersand_checkbox = False
+        
+        # Сброс стилей
+        st.session_state.gost_style = False
+        st.session_state.acs_style = False
+        st.session_state.rsc_style = False
+        st.session_state.cta_style = False
+        
+        # Сброс элементов конфигурации
+        for i in range(8):
+            st.session_state[f"el{i}"] = ""
+            st.session_state[f"it{i}"] = False
+            st.session_state[f"bd{i}"] = False
+            st.session_state[f"pr{i}"] = False
+            st.session_state[f"sp{i}"] = ". "
+        
+        # Сброс данных
+        st.session_state.output_text_value = ""
+        st.session_state.show_results = False
+        st.session_state.download_data = {}
+        
+        st.rerun()
+    
+    def _restore_previous_state(self):
+        """Восстановление предыдущего состояния"""
+        if not st.session_state.previous_states:
+            st.warning("No previous state to restore")
+            return
+        
+        previous_state = st.session_state.previous_states.pop()
+        
+        # Восстанавливаем основные настройки
+        for key, value in previous_state.items():
+            if key in st.session_state and key != 'timestamp':
+                st.session_state[key] = value
+        
+        st.rerun()
     
     def _save_user_preferences(self):
         """Сохранение пользовательских предпочтений"""
@@ -2570,6 +2702,7 @@ class UIComponents:
         """Применение стиля ГОСТ"""
         # Используем callback для безопасного обновления состояния
         def apply_gost_callback():
+            self._save_current_state()
             st.session_state.num = "No numbering"
             st.session_state.auth = "Smith, A.A."
             st.session_state.sep = ", "
@@ -2602,6 +2735,7 @@ class UIComponents:
     def _apply_acs_style(self):
         """Применение стиля ACS"""
         def apply_acs_callback():
+            self._save_current_state()
             st.session_state.num = "No numbering"
             st.session_state.auth = "Smith, A.A."
             st.session_state.sep = "; "
@@ -2633,6 +2767,7 @@ class UIComponents:
     def _apply_rsc_style(self):
         """Применение стиля RSC"""
         def apply_rsc_callback():
+            self._save_current_state()
             st.session_state.num = "No numbering"
             st.session_state.auth = "A.A. Smith"
             st.session_state.sep = ", "
@@ -2664,6 +2799,7 @@ class UIComponents:
     def _apply_cta_style(self):
         """Применение стиля CTA"""
         def apply_cta_callback():
+            self._save_current_state()
             st.session_state.num = "No numbering"
             st.session_state.auth = "Smith AA"
             st.session_state.sep = ", "
@@ -3822,8 +3958,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
