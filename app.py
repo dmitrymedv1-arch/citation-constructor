@@ -1020,8 +1020,10 @@ def init_session_state():
         'last_style_update': 0,
         'cache_initialized': False,
         'user_prefs_loaded': False,
-        # Добавляем флаг для отслеживания обработки файлов
-        'file_processing_complete': False
+        'file_processing_complete': False,
+        'style_import_processed': False,  # Флаг для отслеживания обработки импорта
+        'last_imported_file_hash': None,  # Хеш последнего импортированного файла
+        'style_management_initialized': False,  # Флаг инициализации управления стилями
     }
     
     for key, default in defaults.items():
@@ -2566,114 +2568,128 @@ class UIComponents:
     
     def _apply_gost_style(self):
         """Применение стиля ГОСТ"""
-        st.session_state.num = "No numbering"
-        st.session_state.auth = "Smith, A.A."
-        st.session_state.sep = ", "
-        st.session_state.etal = 0
-        st.session_state.use_and_checkbox = False
-        st.session_state.use_ampersand_checkbox = False
-        st.session_state.doi = "https://dx.doi.org/10.10/xxx"
-        st.session_state.doilink = True
-        st.session_state.page = "122–128"
-        st.session_state.punct = ""
-        st.session_state.journal_style = "{Full Journal Name}"
+        # Используем callback для безопасного обновления состояния
+        def apply_gost_callback():
+            st.session_state.num = "No numbering"
+            st.session_state.auth = "Smith, A.A."
+            st.session_state.sep = ", "
+            st.session_state.etal = 0
+            st.session_state.use_and_checkbox = False
+            st.session_state.use_ampersand_checkbox = False
+            st.session_state.doi = "https://dx.doi.org/10.10/xxx"
+            st.session_state.doilink = True
+            st.session_state.page = "122–128"
+            st.session_state.punct = ""
+            st.session_state.journal_style = "{Full Journal Name}"
+            
+            for i in range(8):
+                st.session_state[f"el{i}"] = ""
+                st.session_state[f"it{i}"] = False
+                st.session_state[f"bd{i}"] = False
+                st.session_state[f"pr{i}"] = False
+                st.session_state[f"sp{i}"] = ". "
+            
+            st.session_state.gost_style = True
+            st.session_state.acs_style = False
+            st.session_state.rsc_style = False
+            st.session_state.cta_style = False
+            st.session_state.style_applied = True
         
-        for i in range(8):
-            st.session_state[f"el{i}"] = ""
-            st.session_state[f"it{i}"] = False
-            st.session_state[f"bd{i}"] = False
-            st.session_state[f"pr{i}"] = False
-            st.session_state[f"sp{i}"] = ". "
-        
-        st.session_state.gost_style = True
-        st.session_state.acs_style = False
-        st.session_state.rsc_style = False
-        st.session_state.cta_style = False
-        st.session_state.style_applied = True
+        # Вызываем callback и перезагружаем страницу
+        apply_gost_callback()
         st.rerun()
     
     def _apply_acs_style(self):
         """Применение стиля ACS"""
-        st.session_state.num = "No numbering"
-        st.session_state.auth = "Smith, A.A."
-        st.session_state.sep = "; "
-        st.session_state.etal = 0
-        st.session_state.use_and_checkbox = False
-        st.session_state.use_ampersand_checkbox = False
-        st.session_state.doi = "10.10/xxx"
-        st.session_state.doilink = True
-        st.session_state.page = "122–128"
-        st.session_state.punct = "."
-        st.session_state.journal_style = "{J. Abbr.}"
+        def apply_acs_callback():
+            st.session_state.num = "No numbering"
+            st.session_state.auth = "Smith, A.A."
+            st.session_state.sep = "; "
+            st.session_state.etal = 0
+            st.session_state.use_and_checkbox = False
+            st.session_state.use_ampersand_checkbox = False
+            st.session_state.doi = "10.10/xxx"
+            st.session_state.doilink = True
+            st.session_state.page = "122–128"
+            st.session_state.punct = "."
+            st.session_state.journal_style = "{J. Abbr.}"
+            
+            for i in range(8):
+                st.session_state[f"el{i}"] = ""
+                st.session_state[f"it{i}"] = False
+                st.session_state[f"bd{i}"] = False
+                st.session_state[f"pr{i}"] = False
+                st.session_state[f"sp{i}"] = ". "
+            
+            st.session_state.gost_style = False
+            st.session_state.acs_style = True
+            st.session_state.rsc_style = False
+            st.session_state.cta_style = False
+            st.session_state.style_applied = True
         
-        for i in range(8):
-            st.session_state[f"el{i}"] = ""
-            st.session_state[f"it{i}"] = False
-            st.session_state[f"bd{i}"] = False
-            st.session_state[f"pr{i}"] = False
-            st.session_state[f"sp{i}"] = ". "
-        
-        st.session_state.gost_style = False
-        st.session_state.acs_style = True
-        st.session_state.rsc_style = False
-        st.session_state.cta_style = False
-        st.session_state.style_applied = True
+        apply_acs_callback()
         st.rerun()
     
     def _apply_rsc_style(self):
         """Применение стиля RSC"""
-        st.session_state.num = "No numbering"
-        st.session_state.auth = "A.A. Smith"
-        st.session_state.sep = ", "
-        st.session_state.etal = 0
-        st.session_state.use_and_checkbox = True
-        st.session_state.use_ampersand_checkbox = False
-        st.session_state.doi = "10.10/xxx"
-        st.session_state.doilink = True
-        st.session_state.page = "122"
-        st.session_state.punct = "."
-        st.session_state.journal_style = "{J. Abbr.}"
+        def apply_rsc_callback():
+            st.session_state.num = "No numbering"
+            st.session_state.auth = "A.A. Smith"
+            st.session_state.sep = ", "
+            st.session_state.etal = 0
+            st.session_state.use_and_checkbox = True
+            st.session_state.use_ampersand_checkbox = False
+            st.session_state.doi = "10.10/xxx"
+            st.session_state.doilink = True
+            st.session_state.page = "122"
+            st.session_state.punct = "."
+            st.session_state.journal_style = "{J. Abbr.}"
+            
+            for i in range(8):
+                st.session_state[f"el{i}"] = ""
+                st.session_state[f"it{i}"] = False
+                st.session_state[f"bd{i}"] = False
+                st.session_state[f"pr{i}"] = False
+                st.session_state[f"sp{i}"] = ". "
+            
+            st.session_state.gost_style = False
+            st.session_state.acs_style = False
+            st.session_state.rsc_style = True
+            st.session_state.cta_style = False
+            st.session_state.style_applied = True
         
-        for i in range(8):
-            st.session_state[f"el{i}"] = ""
-            st.session_state[f"it{i}"] = False
-            st.session_state[f"bd{i}"] = False
-            st.session_state[f"pr{i}"] = False
-            st.session_state[f"sp{i}"] = ". "
-        
-        st.session_state.gost_style = False
-        st.session_state.acs_style = False
-        st.session_state.rsc_style = True
-        st.session_state.cta_style = False
-        st.session_state.style_applied = True
+        apply_rsc_callback()
         st.rerun()
     
     def _apply_cta_style(self):
         """Применение стиля CTA"""
-        st.session_state.num = "No numbering"
-        st.session_state.auth = "Smith AA"
-        st.session_state.sep = ", "
-        st.session_state.etal = 0
-        st.session_state.use_and_checkbox = False
-        st.session_state.use_ampersand_checkbox = False
-        st.session_state.doi = "doi:10.10/xxx"
-        st.session_state.doilink = True
-        st.session_state.page = "122–8"
-        st.session_state.punct = ""
-        st.session_state.journal_style = "{J Abbr}"
+        def apply_cta_callback():
+            st.session_state.num = "No numbering"
+            st.session_state.auth = "Smith AA"
+            st.session_state.sep = ", "
+            st.session_state.etal = 0
+            st.session_state.use_and_checkbox = False
+            st.session_state.use_ampersand_checkbox = False
+            st.session_state.doi = "doi:10.10/xxx"
+            st.session_state.doilink = True
+            st.session_state.page = "122–8"
+            st.session_state.punct = ""
+            st.session_state.journal_style = "{J Abbr}"
+            
+            for i in range(8):
+                st.session_state[f"el{i}"] = ""
+                st.session_state[f"it{i}"] = False
+                st.session_state[f"bd{i}"] = False
+                st.session_state[f"pr{i}"] = False
+                st.session_state[f"sp{i}"] = ". "
+            
+            st.session_state.gost_style = False
+            st.session_state.acs_style = False
+            st.session_state.rsc_style = False
+            st.session_state.cta_style = True
+            st.session_state.style_applied = True
         
-        for i in range(8):
-            st.session_state[f"el{i}"] = ""
-            st.session_state[f"it{i}"] = False
-            st.session_state[f"bd{i}"] = False
-            st.session_state[f"pr{i}"] = False
-            st.session_state[f"sp{i}"] = ". "
-        
-        st.session_state.gost_style = False
-        st.session_state.acs_style = False
-        st.session_state.rsc_style = False
-        st.session_state.cta_style = True
-        st.session_state.style_applied = True
+        apply_cta_callback()
         st.rerun()
     
     def render_general_settings(self):
@@ -3127,14 +3143,8 @@ class CitationStyleApp:
         # Загрузка пользовательских предпочтений
         self.ui.load_user_preferences()
     
-        # Обработка применения импортированного стиля (если есть)
-        if (st.session_state.get('imported_style') and 
-            st.session_state.get('apply_imported_style') and 
-            not st.session_state.get('style_applied')):
-        
-            self._apply_imported_style(st.session_state.imported_style)
-            st.session_state.apply_imported_style = False
-            st.session_state.imported_style = None
+        # Обработка импортированного стиля (если есть)
+        self._handle_imported_style()
     
         # Применение стилей темы
         self.ui.apply_theme_styles()
@@ -3147,6 +3157,24 @@ class CitationStyleApp:
             self._render_mobile_layout()
         else:
             self._render_desktop_layout()
+    
+    def _handle_imported_style(self):
+        """Обработка импортированного стиля"""
+        # Проверяем, есть ли импортированный стиль и нужно ли его применить
+        if (st.session_state.get('imported_style') and 
+            st.session_state.get('apply_imported_style') and 
+            not st.session_state.get('style_import_processed')):
+            
+            # Применяем стиль
+            self._apply_imported_style(st.session_state.imported_style)
+            
+            # Сбрасываем флаги
+            st.session_state.apply_imported_style = False
+            st.session_state.imported_style = None
+            st.session_state.style_import_processed = True
+            
+            # Перезагружаем страницу для применения изменений
+            st.rerun()
     
     def _render_mobile_layout(self):
         """Рендер мобильного макета"""
@@ -3517,17 +3545,20 @@ class CitationStyleApp:
         
         # Обработка импортированного файла
         if imported_file is not None:
-            # Проверяем, что файл еще не обрабатывался в этой сессии
-            if (f"last_imported_file_{imported_file.name}" not in st.session_state or 
-                st.session_state[f"last_imported_file_{imported_file.name}"] != imported_file.getvalue()):
+            current_file_hash = hashlib.md5(imported_file.getvalue()).hexdigest()
             
+            # Проверяем, что файл еще не обрабатывался в этой сессии
+            if (st.session_state.last_imported_file_hash != current_file_hash or 
+                not st.session_state.style_import_processed):
+                
                 imported_style = self._import_style(imported_file)
                 if imported_style:
-                    # Сохраняем хеш файла для предотвращения повторной обработки
-                    st.session_state[f"last_imported_file_{imported_file.name}"] = imported_file.getvalue()
-                
-                    # Применяем стиль сразу
-                    self._apply_imported_style(imported_style)
+                    # Сохраняем хеш файла и устанавливаем флаги для применения
+                    st.session_state.last_imported_file_hash = current_file_hash
+                    st.session_state.imported_style = imported_style
+                    st.session_state.apply_imported_style = True
+                    st.session_state.style_import_processed = False
+                    
                     st.success(get_text('import_success'))
                     st.rerun()
     
@@ -3571,12 +3602,12 @@ class CitationStyleApp:
         
             # Поддержка разных форматов файлов
             if 'style_config' in import_data:
-                return import_data
+                return import_data['style_config']
             elif 'version' in import_data:
-                return import_data
+                return import_data.get('style_config', import_data)
             else:
                 # Предполагаем, что это прямой style_config
-                return {'style_config': import_data}
+                return import_data
             
         except Exception as e:
             st.error(f"{get_text('import_error')}: {str(e)}")
@@ -3587,46 +3618,61 @@ class CitationStyleApp:
         if not imported_style:
             return
     
-        style_config = imported_style.get('style_config', imported_style)
-    
-        # Общие настройки
-        st.session_state.num = style_config.get('numbering_style', "No numbering")
-        st.session_state.auth = style_config.get('author_format', "AA Smith")
-        st.session_state.sep = style_config.get('author_separator', ", ")
-        st.session_state.etal = style_config.get('et_al_limit', 0) or 0
-        st.session_state.use_and_checkbox = style_config.get('use_and_bool', False)
-        st.session_state.use_ampersand_checkbox = style_config.get('use_ampersand_bool', False)
-        st.session_state.doi = style_config.get('doi_format', "10.10/xxx")
-        st.session_state.doilink = style_config.get('doi_hyperlink', True)
-        st.session_state.page = style_config.get('page_format', "122–128")
-        st.session_state.punct = style_config.get('final_punctuation', "")
-        st.session_state.journal_style = style_config.get('journal_style', '{Full Journal Name}')
-    
-        # Сброс пресетов стилей
-        st.session_state.gost_style = style_config.get('gost_style', False)
-        st.session_state.acs_style = style_config.get('acs_style', False)
-        st.session_state.rsc_style = style_config.get('rsc_style', False)
-        st.session_state.cta_style = style_config.get('cta_style', False)
-    
-        # Очистка элементов
-        for i in range(8):
-            st.session_state[f"el{i}"] = ""
-            st.session_state[f"it{i}"] = False
-            st.session_state[f"bd{i}"] = False
-            st.session_state[f"pr{i}"] = False
-            st.session_state[f"sp{i}"] = ". "
-    
-        # Применение элементов из импортированного стиля
-        elements = style_config.get('elements', [])
-        for i, (element, config) in enumerate(elements):
-            if i < 8:  # Ограничиваем 8 элементами
-                st.session_state[f"el{i}"] = element
-                st.session_state[f"it{i}"] = config.get('italic', False)
-                st.session_state[f"bd{i}"] = config.get('bold', False)
-                st.session_state[f"pr{i}"] = config.get('parentheses', False)
-                st.session_state[f"sp{i}"] = config.get('separator', ". ")
-    
-        st.session_state.style_applied = True
+        # Используем безопасный подход с callback для обновления состояния
+        def apply_style_callback():
+            # Общие настройки
+            if 'numbering_style' in imported_style:
+                st.session_state.num = imported_style['numbering_style']
+            if 'author_format' in imported_style:
+                st.session_state.auth = imported_style['author_format']
+            if 'author_separator' in imported_style:
+                st.session_state.sep = imported_style['author_separator']
+            if 'et_al_limit' in imported_style:
+                st.session_state.etal = imported_style['et_al_limit'] or 0
+            if 'use_and_bool' in imported_style:
+                st.session_state.use_and_checkbox = imported_style['use_and_bool']
+            if 'use_ampersand_bool' in imported_style:
+                st.session_state.use_ampersand_checkbox = imported_style['use_ampersand_bool']
+            if 'doi_format' in imported_style:
+                st.session_state.doi = imported_style['doi_format']
+            if 'doi_hyperlink' in imported_style:
+                st.session_state.doilink = imported_style['doi_hyperlink']
+            if 'page_format' in imported_style:
+                st.session_state.page = imported_style['page_format']
+            if 'final_punctuation' in imported_style:
+                st.session_state.punct = imported_style['final_punctuation']
+            if 'journal_style' in imported_style:
+                st.session_state.journal_style = imported_style['journal_style']
+        
+            # Сброс пресетов стилей
+            st.session_state.gost_style = imported_style.get('gost_style', False)
+            st.session_state.acs_style = imported_style.get('acs_style', False)
+            st.session_state.rsc_style = imported_style.get('rsc_style', False)
+            st.session_state.cta_style = imported_style.get('cta_style', False)
+        
+            # Очистка элементов
+            for i in range(8):
+                st.session_state[f"el{i}"] = ""
+                st.session_state[f"it{i}"] = False
+                st.session_state[f"bd{i}"] = False
+                st.session_state[f"pr{i}"] = False
+                st.session_state[f"sp{i}"] = ". "
+        
+            # Применение элементов из импортированного стиля
+            elements = imported_style.get('elements', [])
+            for i, (element, config) in enumerate(elements):
+                if i < 8:  # Ограничиваем 8 элементами
+                    st.session_state[f"el{i}"] = element
+                    st.session_state[f"it{i}"] = config.get('italic', False)
+                    st.session_state[f"bd{i}"] = config.get('bold', False)
+                    st.session_state[f"pr{i}"] = config.get('parentheses', False)
+                    st.session_state[f"sp{i}"] = config.get('separator', ". ")
+        
+            st.session_state.style_applied = True
+            st.session_state.style_import_processed = True
+        
+        # Вызываем callback
+        apply_style_callback()
 
 # Вспомогательные функции
 def clean_text(text):
@@ -3768,37 +3814,6 @@ def apply_imported_style(imported_style):
     """Функция для применения импортированного стиля (для обратной совместимости)"""
     app = CitationStyleApp()
     app._apply_imported_style(imported_style)
-    st.session_state.sep = imported_style.get('author_separator', ", ")
-    st.session_state.etal = imported_style.get('et_al_limit', 0) or 0
-    st.session_state.use_and_checkbox = imported_style.get('use_and_bool', False)
-    st.session_state.use_ampersand_checkbox = imported_style.get('use_ampersand_bool', False)
-    st.session_state.doi = imported_style.get('doi_format', "10.10/xxx")
-    st.session_state.doilink = imported_style.get('doi_hyperlink', True)
-    st.session_state.page = imported_style.get('page_format', "122–128")
-    st.session_state.punct = imported_style.get('final_punctuation', "")
-    st.session_state.gost_style = imported_style.get('gost_style', False)
-    st.session_state.acs_style = imported_style.get('acs_style', False)
-    st.session_state.rsc_style = imported_style.get('rsc_style', False)
-    st.session_state.cta_style = imported_style.get('cta_style', False)
-    st.session_state.journal_style = imported_style.get('journal_style', '{Full Journal Name}')
-    
-    elements = imported_style.get('elements', [])
-    for i in range(8):
-        if i < len(elements):
-            element, config = elements[i]
-            st.session_state[f"el{i}"] = element
-            st.session_state[f"it{i}"] = config.get('italic', False)
-            st.session_state[f"bd{i}"] = config.get('bold', False)
-            st.session_state[f"pr{i}"] = config.get('parentheses', False)
-            st.session_state[f"sp{i}"] = config.get('separator', ". ")
-        else:
-            st.session_state[f"el{i}"] = ""
-            st.session_state[f"it{i}"] = False
-            st.session_state[f"bd{i}"] = False
-            st.session_state[f"pr{i}"] = False
-            st.session_state[f"sp{i}"] = ". "
-    
-    st.session_state.style_applied = True
 
 def main():
     """Основная функция"""
@@ -3807,4 +3822,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
