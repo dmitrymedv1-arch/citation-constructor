@@ -2467,32 +2467,42 @@ class UIComponents:
                 self._apply_acs_style()
             if st.button(get_text('rsc_button'), use_container_width=True, key="rsc_button"):
                 self._apply_rsc_style()
-           if st.button(get_text('cta_button'), use_container_width=True, key="cta_button"):
+            if st.button(get_text('cta_button'), use_container_width=True, key="cta_button"):
                 self._apply_cta_style()
         else:
             # Десктоп вид - горизонтальное расположение
-            columns_count = 4 if st.session_state.current_language == 'ru' else 3
             if st.session_state.current_language == 'ru':
-                col_gost, col_acs, col_rsc, col_cta = st.columns(4)
-            else:
-                col_acs, col_rsc, col_cta = st.columns(3)
-        
-            if st.session_state.current_language == 'ru':
+               col_gost, col_acs, col_rsc, col_cta = st.columns(4)
+            
                 with col_gost:
                     if st.button(get_text('gost_button'), use_container_width=True, key="gost_button"):
                         self._apply_gost_style()
-        
-            with col_acs:
-                if st.button(get_text('acs_button'), use_container_width=True, key="acs_button"):
-                    self._apply_acs_style()
-        
-            with col_rsc:
-                if st.button(get_text('rsc_button'), use_container_width=True, key="rsc_button"):
-                self._apply_rsc_style()
-        
-            with col_cta:
-                if st.button(get_text('cta_button'), use_container_width=True, key="cta_button"):
-                    self._apply_cta_style()
+            
+                with col_acs:
+                    if st.button(get_text('acs_button'), use_container_width=True, key="acs_button"):
+                       self._apply_acs_style()
+            
+                with col_rsc:
+                    if st.button(get_text('rsc_button'), use_container_width=True, key="rsc_button"):
+                        self._apply_rsc_style()
+            
+                with col_cta:
+                    if st.button(get_text('cta_button'), use_container_width=True, key="cta_button"):
+                        self._apply_cta_style()
+            else:
+                col_acs, col_rsc, col_cta = st.columns(3)
+            
+                with col_acs:
+                    if st.button(get_text('acs_button'), use_container_width=True, key="acs_button"):
+                        self._apply_acs_style()
+            
+                with col_rsc:
+                    if st.button(get_text('rsc_button'), use_container_width=True, key="rsc_button"):
+                        self._apply_rsc_style()
+            
+                with col_cta:
+                    if st.button(get_text('cta_button'), use_container_width=True, key="cta_button"):
+                        self._apply_cta_style()
     
     def _apply_gost_style(self):
         """Применение стиля ГОСТ"""
@@ -3668,6 +3678,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
