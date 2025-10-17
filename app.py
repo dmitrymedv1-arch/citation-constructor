@@ -83,7 +83,7 @@ class Config:
         },
         'dark': {
             'primary': '#4ECDC4',
-            'background': '#0E1117',
+            'background': '#1e242f',
             'secondaryBackground': '#464859',
             'text': '#FAFAFA',
             'font': 'sans-serif'
@@ -3822,6 +3822,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
 
