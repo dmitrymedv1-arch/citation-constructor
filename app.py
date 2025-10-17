@@ -1025,6 +1025,18 @@ def init_session_state():
     for key, default in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = default
+    
+    # Инициализация элементов конфигурации
+    for i in range(8):
+        for prop in ['el', 'it', 'bd', 'pr', 'sp']:
+            key = f"{prop}{i}"
+            if key not in st.session_state:
+                if prop == 'sp':
+                    st.session_state[key] = ". "
+                elif prop == 'el':
+                    st.session_state[key] = ""
+                else:
+                    st.session_state[key] = False
 
 def get_text(key: str) -> str:
     """Получение перевода по ключу"""
@@ -3659,4 +3671,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
