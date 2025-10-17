@@ -881,16 +881,19 @@ class StyleValidator:
         """Валидация конфигурации стиля"""
         errors = []
         warnings = []
-        
+    
         # Проверка наличия элементов или пресетов
         has_elements = bool(style_config.get('elements'))
         has_preset = any([
-            style_config.get('gost_style', False),
             style_config.get('acs_style', False), 
             style_config.get('rsc_style', False),
             style_config.get('cta_style', False)
         ])
-        
+    
+        # Добавляем GOST только для русского языка
+        if st.session_state.current_language == 'ru':
+            has_preset = has_preset or style_config.get('gost_style', False)
+    
         if not has_elements and not has_preset:
             errors.append(get_text('validation_error_no_elements'))
         
@@ -1585,7 +1588,7 @@ class CitationFormatterFactory:
     
     @staticmethod
     def create_formatter(style_config: Dict[str, Any]) -> BaseCitationFormatter:
-        if style_config.get('gost_style', False):
+        if style_config.get('gost_style', False) and st.session_state.current_language == 'ru':
             return GOSTCitationFormatter(style_config)
         elif style_config.get('acs_style', False):
             return ACSCitationFormatter(style_config)
@@ -2466,33 +2469,39 @@ class UIComponents:
             st.markdown(f"**{get_text('style_presets')}**")
         with col_info:
             st.markdown(f"<span title='{get_text('style_preset_tooltip')}'>ℹ️</span>", unsafe_allow_html=True)
-        
+    
         if st.session_state.mobile_view:
             # Мобильный вид - вертикальное расположение
-            if st.button(get_text('gost_button'), use_container_width=True, key="gost_button"):
-                self._apply_gost_style()
+            if st.session_state.current_language == 'ru':  # Только для русского
+                if st.button(get_text('gost_button'), use_container_width=True, key="gost_button"):
+                    self._apply_gost_style()
             if st.button(get_text('acs_button'), use_container_width=True, key="acs_button"):
                 self._apply_acs_style()
             if st.button(get_text('rsc_button'), use_container_width=True, key="rsc_button"):
                 self._apply_rsc_style()
-            if st.button(get_text('cta_button'), use_container_width=True, key="cta_button"):
+           if st.button(get_text('cta_button'), use_container_width=True, key="cta_button"):
                 self._apply_cta_style()
         else:
             # Десктоп вид - горизонтальное расположение
-            col_gost, col_acs, col_rsc, col_cta = st.columns(4)
-            
-            with col_gost:
-                if st.button(get_text('gost_button'), use_container_width=True, key="gost_button"):
-                    self._apply_gost_style()
-            
+            columns_count = 4 if st.session_state.current_language == 'ru' else 3
+            if st.session_state.current_language == 'ru':
+                col_gost, col_acs, col_rsc, col_cta = st.columns(4)
+            else:
+                col_acs, col_rsc, col_cta = st.columns(3)
+        
+            if st.session_state.current_language == 'ru':
+                with col_gost:
+                    if st.button(get_text('gost_button'), use_container_width=True, key="gost_button"):
+                        self._apply_gost_style()
+        
             with col_acs:
                 if st.button(get_text('acs_button'), use_container_width=True, key="acs_button"):
                     self._apply_acs_style()
-            
+        
             with col_rsc:
                 if st.button(get_text('rsc_button'), use_container_width=True, key="rsc_button"):
-                    self._apply_rsc_style()
-            
+                self._apply_rsc_style()
+        
             with col_cta:
                 if st.button(get_text('cta_button'), use_container_width=True, key="cta_button"):
                     self._apply_cta_style()
@@ -2881,10 +2890,10 @@ class UIComponents:
     
     def _get_preview_metadata(self, style_config: Dict) -> Optional[Dict]:
         """Получение метаданных для предпросмотра"""
-        if style_config.get('gost_style', False):
+        if style_config.get('gost_style', False) and st.session_state.current_language == 'ru':
             return {
                 'authors': [{'given': 'John A.', 'family': 'Smith'}, {'given': 'Alice B.', 'family': 'Doe'}],
-                'title': 'Article Title',
+               'title': 'Article Title',
                 'journal': 'Journal of the American Chemical Society',
                 'year': 2020,
                 'volume': '15',
@@ -3671,5 +3680,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 
