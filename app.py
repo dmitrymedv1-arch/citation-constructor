@@ -1367,9 +1367,9 @@ class GOSTCitationFormatter(BaseCitationFormatter):
         article_number = metadata['article_number']
         
         is_russian = st.session_state.current_language == 'ru'
-        volume_label = "Т." if is_russian else "Vol."
-        page_label = "С." if is_russian else "P."
-        article_label = "Арт." if is_russian else "Art."
+        volume_label = "V." if is_russian else "Vol."
+        page_label = "Р." if is_russian else "P."
+        article_label = "Аrt." if is_russian else "Art."
         issue_label = "№" if is_russian else "No."
         
         doi_url = f"https://doi.org/{metadata['doi']}"
@@ -3692,4 +3692,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
