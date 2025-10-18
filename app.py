@@ -72,21 +72,25 @@ class Config:
         'end': '#45B7D1'
     }
     
-    # Настройки тем
+    # Настройки тем (обновленные для лучшего контраста)
     THEMES = {
         'light': {
             'primary': '#1f77b4',
-            'background': '#ffffff',
-            'secondaryBackground': '#f0f2f6',
-            'text': '#31333F',
-            'font': 'sans-serif'
+            'background': '#f8f9fa',
+            'secondaryBackground': '#ffffff',
+            'text': '#212529',
+            'font': 'sans-serif',
+            'border': '#dee2e6',
+            'cardBackground': '#ffffff'
         },
         'dark': {
             'primary': '#4ECDC4',
-            'background': '#1e242f',
-            'secondaryBackground': '#464859',
-            'text': '#FAFAFA',
-            'font': 'sans-serif'
+            'background': '#1a1d23',
+            'secondaryBackground': '#2d323d',
+            'text': '#e9ecef',
+            'font': 'sans-serif',
+            'border': '#495057',
+            'cardBackground': '#2d323d'
         }
     }
 
@@ -1320,7 +1324,7 @@ class BaseCitationFormatter:
         return journal_abbrev.abbreviate_journal_name(journal_name, journal_style)
 
 class CustomCitationFormatter(BaseCitationFormatter):
-    """Форматировщик для пользовательских стилей"""
+    """Форматировщик для пользовательских стилей с улучшенной обработкой Issue"""
     
     def format_reference(self, metadata: Dict[str, Any], for_preview: bool = False) -> Tuple[Any, bool]:
         if not metadata:
@@ -1328,35 +1332,57 @@ class CustomCitationFormatter(BaseCitationFormatter):
             return (error_message, True)
         
         elements = []
+        previous_element_was_empty = False
         
         for i, (element, config) in enumerate(self.style_config['elements']):
             value = ""
             doi_value = None
+            element_empty = False
             
             if element == "Authors":
                 value = self.format_authors(metadata['authors'])
+                element_empty = not value
             elif element == "Title":
                 value = metadata['title']
+                element_empty = not value
             elif element == "Journal":
                 value = self.format_journal_name(metadata['journal'])
+                element_empty = not value
             elif element == "Year":
                 value = str(metadata['year']) if metadata['year'] else ""
+                element_empty = not value
             elif element == "Volume":
                 value = metadata['volume']
+                element_empty = not value
             elif element == "Issue":
                 value = metadata['issue']
+                element_empty = not value
             elif element == "Pages":
                 value = self.format_pages(metadata['pages'], metadata['article_number'])
+                element_empty = not value
             elif element == "DOI":
                 doi = metadata['doi']
                 doi_value = doi
                 value, _ = self.format_doi(doi)
+                element_empty = not value
             
+            # Обработка пустых элементов и их разделителей
             if value:
                 if config['parentheses'] and value:
                     value = f"({value})"
                 
-                separator = config['separator'] if i < len(self.style_config['elements']) - 1 else ''
+                # Определяем разделитель с учетом пустых элементов
+                separator = ""
+                if i < len(self.style_config['elements']) - 1:
+                    if not element_empty:
+                        # Если текущий элемент не пустой, используем его разделитель
+                        separator = config['separator']
+                    elif previous_element_was_empty:
+                        # Если предыдущий элемент был пустой, пропускаем разделитель
+                        separator = ""
+                    else:
+                        # Если текущий элемент пустой, но предыдущий был не пустой, используем разделитель
+                        separator = config['separator']
                 
                 if for_preview:
                     formatted_value = value
@@ -1365,24 +1391,42 @@ class CustomCitationFormatter(BaseCitationFormatter):
                     if config['bold']:
                         formatted_value = f"<b>{formatted_value}</b>"
                     
-                    elements.append((formatted_value, False, False, separator, False, None))
+                    elements.append((formatted_value, False, False, separator, False, None, element_empty))
                 else:
                     elements.append((value, config['italic'], config['bold'], separator,
-                                   (element == "DOI" and self.style_config['doi_hyperlink']), doi_value))
+                                   (element == "DOI" and self.style_config['doi_hyperlink']), doi_value, element_empty))
+                
+                previous_element_was_empty = False
+            else:
+                # Элемент пустой - запоминаем это для следующей итерации
+                previous_element_was_empty = True
+        
+        # Пост-обработка для удаления лишних разделителей
+        cleaned_elements = []
+        for i, element_data in enumerate(elements):
+            value, italic, bold, separator, is_doi_hyperlink, doi_value, element_empty = element_data
+            
+            # Если элемент не пустой, добавляем его
+            if not element_empty:
+                # Для последнего элемента убираем разделитель
+                if i == len(elements) - 1:
+                    separator = ""
+                
+                cleaned_elements.append((value, italic, bold, separator, is_doi_hyperlink, doi_value))
         
         if for_preview:
             ref_str = ""
-            for i, (value, _, _, separator, _, _) in enumerate(elements):
+            for i, (value, _, _, separator, _, _) in enumerate(cleaned_elements):
                 ref_str += value
-                if separator and i < len(elements) - 1:
+                if separator and i < len(cleaned_elements) - 1:
                     ref_str += separator
-                elif i == len(elements) - 1 and self.style_config['final_punctuation']:
+                elif i == len(cleaned_elements) - 1 and self.style_config['final_punctuation']:
                     ref_str = ref_str.rstrip(',.') + "."
             
             ref_str = re.sub(r'\.\.+', '.', ref_str)
             return ref_str, False
         else:
-            return elements, False
+            return cleaned_elements, False
 
 class GOSTCitationFormatter(BaseCitationFormatter):
     """Форматировщик для стиля ГОСТ"""
@@ -2335,7 +2379,8 @@ class UIComponents:
     
     def render_header(self):
         """Рендер заголовка и контролов"""
-        col_logo, col_lang, col_theme, col_view, col_actions = st.columns([2, 2, 2, 1, 2])
+        # Обновленный макет с кнопками Clear и Back на одном уровне
+        col_logo, col_lang, col_theme, col_view, col_clear, col_back = st.columns([2, 2, 2, 1, 1, 1])
         
         with col_logo:
             st.title(get_text('header'))
@@ -2349,8 +2394,11 @@ class UIComponents:
         with col_view:
             self._render_view_selector()
         
-        with col_actions:
-            self._render_action_buttons()
+        with col_clear:
+            self._render_clear_button()
+        
+        with col_back:
+            self._render_back_button()
     
     def _render_language_selector(self):
         """Рендер селектора языка"""
@@ -2414,17 +2462,15 @@ class UIComponents:
             self._save_user_preferences()
             st.rerun()
     
-    def _render_action_buttons(self):
-        """Рендер кнопок действий"""
-        col_clear, col_back = st.columns(2)
-        
-        with col_clear:
-            if st.button(get_text('clear_button'), use_container_width=True, key="clear_button"):
-                self._clear_all_settings()
-        
-        with col_back:
-            if st.button(get_text('back_button'), use_container_width=True, key="back_button"):
-                self._restore_previous_state()
+    def _render_clear_button(self):
+        """Рендер кнопки Clear"""
+        if st.button(get_text('clear_button'), use_container_width=True, key="clear_button"):
+            self._clear_all_settings()
+    
+    def _render_back_button(self):
+        """Рендер кнопки Back"""
+        if st.button(get_text('back_button'), use_container_width=True, key="back_button"):
+            self._restore_previous_state()
     
     def _save_current_state(self):
         """Сохранение текущего состояния для кнопки Back"""
@@ -2554,6 +2600,8 @@ class UIComponents:
             .stSelectbox, .stTextInput, .stNumberInput, .stCheckbox, .stRadio, .stFileUploader, .stTextArea {{
                 margin-bottom: 0.02rem;
                 background-color: {theme['secondaryBackground']};
+                border: 1px solid {theme['border']};
+                border-radius: 0.25rem;
             }}
             .stTextArea {{ 
                 height: 40px !important; 
@@ -2568,6 +2616,8 @@ class UIComponents:
                 margin: 0.02rem; 
                 background-color: {theme['primary']};
                 color: white;
+                border: none;
+                border-radius: 0.25rem;
             }}
             h1, h2, h3 {{
                 color: {theme['text']} !important;
@@ -2597,6 +2647,8 @@ class UIComponents:
                 margin: 0.02rem; 
                 background-color: {theme['primary']};
                 color: white;
+                border: none;
+                border-radius: 0.25rem;
             }}
             .element-row {{ margin: 0.01rem; padding: 0.01rem; }}
             .processing-header {{ font-size: 0.8rem; font-weight: bold; margin-bottom: 0.1rem; }}
@@ -2606,6 +2658,13 @@ class UIComponents:
             .guide-title {{ font-size: 0.7rem !important; font-weight: bold; margin-bottom: 0.1rem; }}
             .guide-step {{ font-size: 0.55rem !important; line-height: 1.1; margin-bottom: 0.1rem; }}
             .guide-note {{ font-size: 0.55rem !important; font-style: italic; line-height: 1.1; margin-bottom: 0.1rem; margin-left: 0.5rem; }}
+            .card {{
+                background-color: {theme['cardBackground']};
+                padding: 0.5rem;
+                border-radius: 0.5rem;
+                border: 1px solid {theme['border']};
+                margin-bottom: 0.5rem;
+            }}
             
             /* Мобильные стили */
             @media (max-width: 768px) {{
@@ -3300,7 +3359,7 @@ class CitationStyleApp:
         if (st.session_state.get('imported_style') and 
             st.session_state.get('apply_imported_style') and 
             not st.session_state.get('style_import_processed')):
-            
+
             # Применяем стиль
             self._apply_imported_style(st.session_state.imported_style)
             
