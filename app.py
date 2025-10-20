@@ -1458,18 +1458,6 @@ class GOSTCitationFormatter(BaseCitationFormatter):
         pages = metadata['pages']
         article_number = metadata['article_number']
         
-        # Форматирование страниц в формате "122-128" (с обычным дефисом)
-        if pages:
-            if '-' in pages:
-                start_page, end_page = pages.split('-')
-                pages_formatted = f"{start_page.strip()}-{end_page.strip()}"
-            else:
-                pages_formatted = pages.strip()
-        elif article_number:
-            pages_formatted = article_number
-        else:
-            pages_formatted = ""
-        
         # Используем полное название журнала
         journal_name = metadata['journal']
         
@@ -1481,10 +1469,20 @@ class GOSTCitationFormatter(BaseCitationFormatter):
         else:
             gost_ref = f"{authors_str} {metadata['title']} // {journal_name}. – {metadata['year']}. – Vol. {metadata['volume']}"
         
-        # Добавляем страницы или артикул
-        if pages_formatted:
+        # Добавляем страницы или артикул в зависимости от доступных данных
+        if pages and pages.strip():
+            # Форматирование страниц в формате "122-128" (с обычным дефисом)
+            if '-' in pages:
+                start_page, end_page = pages.split('-')
+                pages_formatted = f"{start_page.strip()}-{end_page.strip()}"
+            else:
+                pages_formatted = pages.strip()
             gost_ref += f". – Р. {pages_formatted}"
+        elif article_number and article_number.strip():
+            # Используем номер статьи
+            gost_ref += f". – Art. {article_number.strip()}"
         else:
+            # Нет ни страниц, ни номера статьи
             if st.session_state.current_language == 'ru':
                 gost_ref += ". – [Без пагинации]"
             else:
@@ -4008,3 +4006,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
