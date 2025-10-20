@@ -1429,28 +1429,15 @@ class CustomCitationFormatter(BaseCitationFormatter):
             return cleaned_elements, False
 
 class GOSTCitationFormatter(BaseCitationFormatter):
-    """Форматировщик для стиля ГОСТ"""
+    """Форматировщик для стиля ГОСТ (обновленная версия)"""
     
     def format_reference(self, metadata: Dict[str, Any], for_preview: bool = False) -> Tuple[Any, bool]:
         if not metadata:
             error_message = "Ошибка: Не удалось отформатировать ссылку." if st.session_state.current_language == 'ru' else "Error: Could not format the reference."
             return (error_message, True)
         
-        first_author = ""
-        if metadata['authors']:
-            author = metadata['authors'][0]
-            given = author['given']
-            family = author['family']
-            initials = given.split()[:2]
-            first_initial = initials[0][0] if initials else ''
-            second_initial = initials[1][0].upper() if len(initials) > 1 else ''
-            
-            if second_initial:
-                first_author = f"{family}, {first_initial}.{second_initial}."
-            else:
-                first_author = f"{family}, {first_initial}."
-        
-        all_authors = ""
+        # Форматирование авторов в новом формате: Smith J.A., Doe A.B.
+        authors_str = ""
         for i, author in enumerate(metadata['authors']):
             given = author['given']
             family = author['family']
@@ -1459,47 +1446,52 @@ class GOSTCitationFormatter(BaseCitationFormatter):
             second_initial = initials[1][0].upper() if len(initials) > 1 else ''
             
             if second_initial:
-                author_str = f"{first_initial}.{second_initial}. {family}"
+                author_str = f"{family} {first_initial}.{second_initial}."
             else:
-                author_str = f"{first_initial}. {family}"
+                author_str = f"{family} {first_initial}."
             
-            all_authors += author_str
+            authors_str += author_str
+            
             if i < len(metadata['authors']) - 1:
-                all_authors += ", "
+                authors_str += ", "
         
         pages = metadata['pages']
         article_number = metadata['article_number']
         
-        is_russian = st.session_state.current_language == 'ru'
-        volume_label = "V." if is_russian else "Vol."
-        page_label = "Р." if is_russian else "P."
-        article_label = "Аrt." if is_russian else "Art."
-        issue_label = "№" if is_russian else "No."
-        
-        doi_url = f"https://doi.org/{metadata['doi']}"
-        journal_name = self.format_journal_name(metadata['journal'])
-        
-        if metadata['issue']:
-            gost_ref = f"{first_author} {metadata['title']} / {all_authors} // {journal_name}. – {metadata['year']}. – {volume_label} {metadata['volume']}. – {issue_label} {metadata['issue']}."
-        else:
-            gost_ref = f"{first_author} {metadata['title']} / {all_authors} // {journal_name}. – {metadata['year']}. – {volume_label} {metadata['volume']}."
-        
+        # Форматирование страниц в формате "122-128" (с обычным дефисом)
         if pages:
             if '-' in pages:
                 start_page, end_page = pages.split('-')
-                pages = f"{start_page.strip()}–{end_page.strip()}"
+                pages_formatted = f"{start_page.strip()}-{end_page.strip()}"
             else:
-                pages = pages.strip()
-            gost_ref += f" – {page_label} {pages}."
+                pages_formatted = pages.strip()
         elif article_number:
-            gost_ref += f" – {article_label} {article_number}."
+            pages_formatted = article_number
         else:
-            if is_russian:
-                gost_ref += " – [Без пагинации]."
-            else:
-                gost_ref += " – [No pagination]."
+            pages_formatted = ""
         
-        gost_ref += f" – {doi_url}"
+        # Используем полное название журнала
+        journal_name = metadata['journal']
+        
+        doi_url = f"https://doi.org/{metadata['doi']}"
+        
+        # Форматирование основной ссылки
+        if metadata['issue']:
+            gost_ref = f"{authors_str} {metadata['title']} // {journal_name}. – {metadata['year']}. – Vol. {metadata['volume']}, № {metadata['issue']}"
+        else:
+            gost_ref = f"{authors_str} {metadata['title']} // {journal_name}. – {metadata['year']}. – Vol. {metadata['volume']}"
+        
+        # Добавляем страницы или артикул
+        if pages_formatted:
+            gost_ref += f". – Р. {pages_formatted}"
+        else:
+            if st.session_state.current_language == 'ru':
+                gost_ref += ". – [Без пагинации]"
+            else:
+                gost_ref += ". – [No pagination]"
+        
+        # Добавляем DOI
+        gost_ref += f". – {doi_url}"
         
         if for_preview:
             return gost_ref, False
@@ -2758,21 +2750,20 @@ class UIComponents:
                         self._apply_cta_style()
     
     def _apply_gost_style(self):
-        """Применение стиля ГОСТ"""
-        # Используем callback для безопасного обновления состояния
+        """Применение стиля ГОСТ (только для русского языка)"""
         def apply_gost_callback():
             self._save_current_state()
             st.session_state.num = "No numbering"
-            st.session_state.auth = "Smith, A.A."
+            st.session_state.auth = "Smith AA"  # Обновляем формат авторов
             st.session_state.sep = ", "
             st.session_state.etal = 0
             st.session_state.use_and_checkbox = False
             st.session_state.use_ampersand_checkbox = False
             st.session_state.doi = "https://dx.doi.org/10.10/xxx"
             st.session_state.doilink = True
-            st.session_state.page = "122–128"
+            st.session_state.page = "122-128"  # Обновляем формат страниц
             st.session_state.punct = ""
-            st.session_state.journal_style = "{Full Journal Name}"
+            st.session_state.journal_style = "{Full Journal Name}"  # Используем полное название
             
             for i in range(8):
                 st.session_state[f"el{i}"] = ""
