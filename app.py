@@ -2455,14 +2455,15 @@ class UIComponents:
             st.rerun()
     
     def _render_clear_button(self):
-        """Рендер кнопки Clear"""
-        if st.button(get_text('clear_button'), use_container_width=True, key="clear_button"):
+        """Рендер кнопки Clear с иконкой"""
+        if st.button("🗑️", help="Clear all settings", key="clear_button", use_container_width=True):
             self._clear_all_settings()
-    
+
     def _render_back_button(self):
-        """Рендер кнопки Back"""
-        if st.button(get_text('back_button'), use_container_width=True, key="back_button"):
-            self._restore_previous_state()
+        """Рендер кнопки Back с иконкой"""
+        if st.session_state.previous_states:
+            if st.button("↩️", help="Back to previous state", key="back_button", use_container_width=True):
+                self._restore_previous_state()
     
     def _save_current_state(self):
         """Сохранение текущего состояния для кнопки Back"""
@@ -4008,3 +4009,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
