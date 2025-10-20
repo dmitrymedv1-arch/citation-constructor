@@ -1469,8 +1469,12 @@ class GOSTCitationFormatter(BaseCitationFormatter):
         else:
             gost_ref = f"{authors_str} {metadata['title']} // {journal_name}. – {metadata['year']}. – Vol. {metadata['volume']}"
         
-        # Добавляем страницы или артикул в зависимости от доступных данных
-        if pages and pages.strip():
+        # НОВАЯ ЛОГИКА: Приоритет article-number над pages
+        if article_number and article_number.strip():
+            # Используем номер статьи (высший приоритет)
+            gost_ref += f". – Art. {article_number.strip()}"
+        elif pages and pages.strip():
+            # Используем страницы (если нет article-number)
             # Форматирование страниц в формате "122-128" (с обычным дефисом)
             if '-' in pages:
                 start_page, end_page = pages.split('-')
@@ -1478,11 +1482,8 @@ class GOSTCitationFormatter(BaseCitationFormatter):
             else:
                 pages_formatted = pages.strip()
             gost_ref += f". – Р. {pages_formatted}"
-        elif article_number and article_number.strip():
-            # Используем номер статьи
-            gost_ref += f". – Art. {article_number.strip()}"
         else:
-            # Нет ни страниц, ни номера статьи
+            # Нет ни article-number, ни pages
             if st.session_state.current_language == 'ru':
                 gost_ref += ". – [Без пагинации]"
             else:
@@ -4006,4 +4007,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
