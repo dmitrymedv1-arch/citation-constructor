@@ -2368,10 +2368,34 @@ class UIComponents:
     def __init__(self):
         self.user_prefs = UserPreferencesManager()
     
-    def render_header(self):
-        """Рендер заголовка и контролов"""
-        # Улучшенный макет с более широкими колонками для кнопок
-        col_title, col_lang, col_theme, col_view, col_clear, col_back = st.columns([2, 1.5, 1.5, 1.2, 1, 1])
+def render_header(self):
+    """Рендер заголовка и контролов"""
+    # Улучшенный макет с адаптивными колонками
+    if st.session_state.mobile_view:
+        # Мобильный вид - компактное расположение
+        col_title = st.columns([1])
+        with col_title[0]:
+            st.title(get_text('header'))
+        
+        # Контролы в строках для мобильного вида
+        col1, col2 = st.columns(2)
+        with col1:
+            self._render_language_selector()
+        with col2:
+            self._render_theme_selector()
+        
+        col3, col4 = st.columns(2)
+        with col3:
+            self._render_view_selector()
+        with col4:
+            self._render_clear_button()
+        
+        # Кнопка Back на отдельной строке если нужно
+        if st.session_state.previous_states:
+            self._render_back_button()
+    else:
+        # Десктоп вид - оптимизированное расположение
+        col_title, col_lang, col_theme, col_view, col_clear, col_back = st.columns([2, 1.2, 1.2, 1, 0.8, 0.8])
         
         with col_title:
             st.title(get_text('header'))
@@ -2390,6 +2414,17 @@ class UIComponents:
         
         with col_back:
             self._render_back_button()
+
+def _render_clear_button(self):
+    """Рендер кнопки Clear"""
+    if st.button("🗑️", help=get_text('clear_button'), key="clear_button", use_container_width=True):
+        self._clear_all_settings()
+
+def _render_back_button(self):
+    """Рендер кнопки Back"""
+    if st.session_state.previous_states:
+        if st.button("↩️", help=get_text('back_button'), key="back_button", use_container_width=True):
+            self._restore_previous_state()
     
     def _render_language_selector(self):
         """Рендер селектора языка"""
@@ -2452,16 +2487,6 @@ class UIComponents:
             st.session_state.mobile_view = not st.session_state.mobile_view
             self._save_user_preferences()
             st.rerun()
-    
-    def _render_clear_button(self):
-        """Рендер кнопки Clear"""
-        if st.button(get_text('clear_button'), use_container_width=True, key="clear_button"):
-            self._clear_all_settings()
-    
-    def _render_back_button(self):
-        """Рендер кнопки Back"""
-        if st.button(get_text('back_button'), use_container_width=True, key="back_button"):
-            self._restore_previous_state()
     
     def _save_current_state(self):
         """Сохранение текущего состояния для кнопки Back"""
@@ -4007,3 +4032,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
